@@ -1,0 +1,104 @@
+<div data-role="page" class="page type-interior pluginConfigurationPage ultimateCollectionsConfigPage"
+     data-require="emby-input,emby-button,emby-checkbox,emby-textarea"
+     data-controller="__plugin/UltimateCollectionsJS">
+    <!--
+        Settings page of the plugin (embedded resource, see Plugin.GetPages). The script is configPage.js, loaded via
+        data-controller "__plugin/UltimateCollectionsJS". The uc* ids are what configPage.js reads and writes:
+        rename one here and rename it there too. The Danger zone sits outside the form on purpose, so Save never
+        touches it.
+    -->
+    <div data-role="content">
+        <div class="content-primary">
+            <form class="ultimateCollectionsForm">
+                <h2 class="sectionTitle">Ultimate Collections</h2>
+                <p class="fieldDescription">
+                    Collections from TMDb keywords, release years, public MDBList lists and library titles.
+                    Runs as the scheduled task <b>Ultimate Collections &gt; Sync collections</b> (daily 05:00; "Run now" there).
+                    The log is in the plugin's data folder (<code>logs/</code>) and in the server log.
+                </p>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="password" id="ucTmdbToken" label="TMDb read access token (v4):" autocomplete="off" />
+                    <div class="fieldDescription">themoviedb.org &gt; Settings &gt; API &gt; "API Read Access Token" (free).
+                        This product uses the TMDB API but is not endorsed or certified by TMDB.</div>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="ucDryRun" />
+                        <span>Dry run (log what would change, change nothing)</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Leave on until the log looks right.</div>
+                </div>
+                <div class="checkboxContainer">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="ucShowTitles" />
+                        <span>Log the matching titles</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="ucIgnoreSeason" />
+                        <span>Ignore seasons (dry run only: preview out-of-season collections)</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="ucRefreshNextRun" />
+                        <span>Download all lists again on the next run</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Switches itself off after that run. Downloads every list from TMDb again.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="ucOnly" label="Only these collections (comma-separated, empty = all):" />
+                </div>
+
+                <div class="ucStyleRow" style="display: flex; align-items: center; gap: 1em; flex-wrap: wrap; margin-bottom: 1em;">
+                    <button is="emby-button" type="button" id="ucPosterStyle" class="raised"><span>Poster style...</span></button>
+                    <span class="fieldDescription" style="margin: 0;">Choose a collection's poster colours with a live preview; the lines are written into the text below for you.</span>
+                </div>
+
+                <div class="inputContainer">
+                    <textarea is="emby-textarea" id="ucCollectionsText" label="Collections (collections.conf format):" rows="30"
+                              style="font-family: monospace; white-space: pre; overflow-wrap: normal; overflow-x: auto;"></textarea>
+                    <div class="fieldDescription">
+                        <code>[global]</code> then one <code>[collection NAME]</code> section per collection; keys
+                        <code>tmdb_keyword</code>, <code>tmdb_actor</code> (movies only), <code>mdblist</code>, <code>title</code>, <code>release_years</code>,
+                        <code>min_rating</code>, <code>min_votes</code>, <code>exclude_genre</code>, <code>exclude_keyword</code>,
+                        <code>tv yes</code>, <code>season MM-DD MM-DD</code>, <code>min_items</code>, <code>max_pages</code>.
+                        The README has the full guide with explained examples.
+                    </div>
+                </div>
+
+                <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+            </form>
+
+            <div class="ucDangerZone" style="margin-top: 4em; padding: 1.2em 1.5em; border: 2px solid #c62828; border-radius: 6px;">
+                <h2 class="sectionTitle" style="color: #ef5350; margin-top: 0;">Danger zone: delete all collections</h2>
+                <p>
+                    This deletes <b>every collection in Emby</b>, not only the ones this plugin made: collections you
+                    created by hand, ones Emby created automatically, and ones from other tools or plugins.
+                    Use it to clear out a library whose collections have grown out of hand before letting this plugin build them again.
+                </p>
+                <ul>
+                    <li>Your movies, shows and files are <b>not</b> touched. Only the collections are removed: their names,
+                        posters and which titles were in them.</li>
+                    <li>It <b>cannot be undone</b>. A list of every deleted collection and its titles is saved first, in the
+                        plugin's data folder under <code>backups/</code>.</li>
+                    <li>Collections Emby makes automatically from movie metadata (TMDb "box sets") come back on the next library
+                        scan unless that is switched off in each movie library's settings.</li>
+                    <li>The plugin's own collections are created again on its next run.</li>
+                </ul>
+                <p class="ucCollectionCount" style="font-weight: bold;">Counting collections...</p>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="ucDeleteConfirm" autocomplete="off"
+                           label="Type DELETE (in capitals) to unlock the button:" />
+                </div>
+                <button is="emby-button" type="button" id="ucDeleteAll" class="raised block" disabled
+                        style="background: #c62828; color: #fff;"><span>Delete All Collections</span></button>
+                <p class="ucDeleteResult" style="margin-bottom: 0;"></p>
+            </div>
+        </div>
+    </div>
+</div>

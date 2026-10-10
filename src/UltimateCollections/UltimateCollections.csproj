@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>UltimateCollections</RootNamespace>
+    <AssemblyName>UltimateCollections</AssemblyName>
+    <Version>1.0.0</Version>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Emby SDK. Compile-time only: the server provides these assemblies at runtime, so nothing but
+         UltimateCollections.dll goes into the plugins folder. 4.10.0.24-beta2 is the newest 4.10 SDK on NuGet;
+         the APIs used here are unchanged since 4.9.1.90 (checked 2026-10-09). -->
+    <PackageReference Include="MediaBrowser.Server.Core" Version="4.10.0.24-beta2" PrivateAssets="all" ExcludeAssets="runtime" />
+    <!-- Emby 4.10.1 ships SkiaSharp 2.88.3 (+ native libSkiaSharp) for its own image work; the plugin uses that copy.
+         Compile-only like the SDK. If an Emby update changes SkiaSharp, only artwork fails (logged), not the sync.
+         NU1903: 2.88.3 has GHSA-j7hp-h8jx-5ppr (libwebp, CVE-2023-4863). We ship no SkiaSharp; the copy that runs is
+         Emby's own, which Emby already uses on the same images, so the plugin adds no exposure. -->
+    <PackageReference Include="SkiaSharp" Version="2.88.3" PrivateAssets="all" ExcludeAssets="runtime;native" NoWarn="NU1903" />
+    <!-- ReadOnlyMemory<char> for IProviderManager.SaveImage; part of the .NET runtime Emby runs on -->
+    <PackageReference Include="System.Memory" Version="4.6.0" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Web\configPage.html" />
+    <EmbeddedResource Include="Web\configPage.js" />
+    <!-- Bebas Neue, SIL Open Font License 1.1 (Fonts/BebasNeue-OFL.txt), from github.com/google/fonts ofl/bebasneue -->
+    <EmbeddedResource Include="Fonts\BebasNeue-Regular.ttf" />
+    <!-- picture on Emby's Plugins page -->
+    <EmbeddedResource Include="Images\thumb.png" />
+    <!-- The OFL wants its text to travel with the font; the font is inside the DLL, so its licence is too. -->
+    <EmbeddedResource Include="Fonts\BebasNeue-OFL.txt" />
+  </ItemGroup>
+
+</Project>
