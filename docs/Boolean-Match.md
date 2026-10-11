@@ -1,20 +1,23 @@
-# Boolean Match Expressions and Emby Metadata Selectors
+# Fork Changes: Boolean Match Expressions and Actor TV Shows
 
-The change that added the `match` key to Ultimate Collections. This page covers what it does, how it is built,
-what was tested, and why existing configurations are unaffected. For how to **use** it, see the
-[Configuration Guide](Configuration-Guide.md).
+> **Whose work is what.** Ultimate Collections was created by **jdwaymire (WaymireNET)**: the plugin, its design, its configuration language and its original documentation are the original author's work ([original project](https://github.com/jdwaymire/UltimateCollections)). This document describes **only the changes made in the HHRSDev fork** on top of that work. Anything not described here is the original author's and is unchanged.
+
+This page covers the fork's two changes: the `match` key (sections 1 to 7) and `tmdb_actor` with `tv yes`
+(section 8). It covers what each does, how it is built, what was tested, and why existing configurations are
+unaffected. For how to **use** them, see the [Configuration Guide](Configuration-Guide.md).
 
 | | |
 |---|---|
-| Fork | github.com/HHRSDev/UltimateCollections (forked from jdwaymire/UltimateCollections) |
-| Date | 2026-10-10 |
-| Status | Built and tested on a live Emby server by the fork owner |
+| Original project | github.com/jdwaymire/UltimateCollections, by jdwaymire (WaymireNET) |
+| Fork | github.com/HHRSDev/UltimateCollections |
+| Date of the changes | 2026-10-10 |
+| Status | Both changes built and tested on a live Emby server by the fork owner |
 
 ---
 
 ## 1. What was missing
 
-The original plugin fills a collection from a fixed set of sources (`tmdb_keyword`, `tmdb_actor`, `release_years`,
+The original plugin (as written by jdwaymire) fills a collection from a fixed set of sources (`tmdb_keyword`, `tmdb_actor`, `release_years`,
 `mdblist`, `title`) that combine by fixed rules:
 
 - the same key repeated means ANY;
@@ -201,8 +204,7 @@ a fake download function:
 
 **Compatibility.** See section 5.
 
-**Live.** Tested by the fork owner on their Emby server, 2026-10-10, before the clean-up change in section 3.4 (which
-only affects which stale files are deleted).
+**Live.** Tested by the fork owner on their Emby server, 2026-10-10, including the clean-up change in section 3.4.
 
 ---
 
@@ -248,4 +250,4 @@ responses: movies still come from discover; the TV part keeps acting roles and d
 appearances; no TV request without `tv yes`; `release_years`, `min_rating` / `min_votes` and `exclude_genre` filter
 the shows; a movie-only excluded genre is skipped without error; a keyword narrows the shows; an excluded keyword
 removes them; the person is searched once per run; the `match` selector requests and returns TV. The 28 earlier
-checks still pass. Not yet run against the live TMDb API or a live Emby server.
+checks still pass. Tested by the fork owner on their Emby server against the live TMDb API, 2026-10-10.

@@ -1,8 +1,11 @@
 # Ultimate Collections: Configuration Guide
 
+> **About this guide.** Ultimate Collections was created by **jdwaymire (WaymireNET)** ([original project](https://github.com/jdwaymire/UltimateCollections)). This guide was written for the **HHRSDev fork**, which adds a few features on top of the original. It describes the original plugin's configuration **and** the fork's additions together, so you can use one document. Everything the fork added is marked **[Fork addition]**; everything else works the same in the original plugin.
+
+> **The fork's additions** are the `match` key, meaning AND / OR / NOT expressions and the Emby metadata selectors (sections 5, 6 and 10, most of the cookbook, and the `match` parts of sections 3, 11, 13 and 14), and `tmdb_actor` together with `tv yes` (section 4.1).
+
 This guide covers everything you can write in the **Collections** box on the plugin's settings page (Dashboard >
-Plugins > Ultimate Collections). It includes the boolean `match` key, which combines TMDb, MDBList and Emby's own
-metadata (tags, genres, studios, people, years, ratings) with AND, OR and NOT.
+Plugins > Ultimate Collections).
 
 If you are new to the plugin, read [Installation and first run](../README.md#installation) in the main README first,
 then come back here.
@@ -78,7 +81,7 @@ Every collection needs at least one **source**. There are two styles, and you ch
 **Simple sources** are one key per line (`tmdb_keyword`, `tmdb_actor`, `release_years`, `mdblist`, `title`). They
 combine by fixed rules (section 4). They are quick to write and cover most themes.
 
-**`match` expressions** are one or more `match` lines holding a boolean expression of selectors. You decide exactly
+**[Fork addition]** **`match` expressions** are one or more `match` lines holding a boolean expression of selectors. You decide exactly
 how things combine, and you can use Emby's own metadata (tags, genres, studios, people, years, ratings, parental
 rating) as well as TMDb and MDBList.
 
@@ -98,7 +101,7 @@ one of those has a selector that means the same thing inside the expression (see
 | Key | Example | Meaning |
 |---|---|---|
 | `tmdb_keyword` | `tmdb_keyword time travel` | Movies TMDb has tagged with this keyword (exact name, or the numeric id). |
-| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast, according to TMDb. With `tv yes`, also the shows they acted in (section 4.1). |
+| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast, according to TMDb. **[Fork addition]** With `tv yes`, also the shows they acted in (section 4.1). |
 | `release_years` | `release_years 1980 1989` | All TMDb movies released in these years. Use with `min_rating` / `min_votes`. |
 | `mdblist` | `mdblist k0meta/christmas-extravaganza` | A public list from mdblist.com (the `user/list` part of its address). |
 | `title` | `title Star Trek` | Library titles whose name contains this text. No internet needed. |
@@ -122,6 +125,8 @@ How simple sources combine:
 These rules are fixed. If they are not what you want, use `match`.
 
 ### 4.1 Actors and TV shows
+
+**[Fork addition]** In the original plugin `tmdb_actor` is movies only, and `tv yes` with it is an error.
 
 `tmdb_actor` with `tv yes` includes the actor's TV shows as well as their movies:
 
@@ -147,6 +152,8 @@ As always, only the shows you own end up in the collection, matched by their TMD
 ---
 
 ## 5. Boolean collections: the match key
+
+**[Fork addition]** This whole section describes the fork's `match` key.
 
 ### 5.1 The idea
 
@@ -217,6 +224,8 @@ tv     yes
 ---
 
 ## 6. Selector reference
+
+**[Fork addition]** This whole section describes the fork's `match` key.
 
 ### 6.1 Emby metadata selectors
 
@@ -326,7 +335,8 @@ in your library; once it exists in Emby, the preview uses its own titles.
 
 ## 9. Cookbook
 
-Each recipe is a complete collection you can paste and adapt.
+Each recipe is a complete collection you can paste and adapt. **[Fork addition]** Every recipe here uses a fork addition (`match`,
+or `tmdb_actor` with `tv yes`); the original plugin's own recipes are in the main [README](../README.md#recipes-examples-explained).
 
 ### 9.1 A keyword or a tag
 
@@ -458,6 +468,8 @@ min_items  5
 
 ## 10. Converting a simple collection to match
 
+**[Fork addition]** This whole section describes the fork's `match` key.
+
 Every simple-source key has a selector that means the same thing:
 
 | Simple source | Inside match |
@@ -499,8 +511,8 @@ Two small differences to know about:
 
 ## 11. Downloads, saved lists and API cost
 
-- **Emby selectors** (`tag:`, `genre:`, `actor:`, `year:`, ...) never download anything. They are checked against your library on every run.
-- **Online selectors** are downloaded once and saved in the plugin's data folder under `lists/match/`, one file per selector. A saved list is reused until it is `list_refresh_days` old (default 7), or until you tick **Download all lists again** on the settings page.
+- **[Fork addition]** **Emby selectors** (`tag:`, `genre:`, `actor:`, `year:`, ...) never download anything. They are checked against your library on every run.
+- **[Fork addition]** **Online selectors** are downloaded once and saved in the plugin's data folder under `lists/match/`, one file per selector. A saved list is reused until it is `list_refresh_days` old (default 7), or until you tick **Download all lists again** on the settings page.
 - A saved list belongs to the selector **and** the settings that change what is downloaded: `tv`, `max_pages`, `min_rating`, `min_votes`. Two collections that use `tmdb_keyword:christmas` with the same settings **share one download**. Change one of those settings and that selector is downloaded again.
 - Changing the expression around a selector (adding `AND NOT genre:Horror`, say) costs **no** download: only selectors that are new or whose settings changed are fetched.
 - Saved lists that no collection uses any more are deleted after a full run (not when **Only these collections** is set, since then the other collections only look missing).
@@ -516,7 +528,7 @@ Two small differences to know about:
 4. Read the log (`logs/YYYY-MM-DD.log` in the plugin's data folder; example below).
 5. When the titles are right, untick **Dry run**, clear **Only these collections**, Save, and run again.
 
-For a `match` collection the log shows what each selector found, then the result. (Each title in the real log is
+**[Fork addition]** For a `match` collection the log shows what each selector found, then the result. (Each title in the real log is
 followed by its Emby, TMDb and IMDb ids; they are left out here.)
 
 ```
@@ -536,6 +548,10 @@ Emby shows.
 
 Errors in the settings stop the whole run before anything changes. Errors in one collection leave **that**
 collection unchanged and let the others sync.
+
+Messages that begin `line N: match:`, the `year:` and `type:` messages, the "has 'match' and also" message, and the
+"matches nothing in the library" and "returned nothing" messages come from the fork's `match` key. The others are
+the original plugin's.
 
 | Message | Cause and fix |
 |---|---|
@@ -575,7 +591,7 @@ mdblist         <user>/<list>
 title           <text>
 exclude_genre   <genre>
 exclude_keyword <keyword>
-# --- or match expressions (repeat = ANY) ---
+# --- or match expressions (repeat = ANY)  [fork addition] ---
 match   <selector> AND / OR / NOT <selector> ... ( ) for grouping
 #   Emby:   tag: genre: studio: rated: title: actor: director: writer: producer: person:
 #           year:1985  year:1980..1989  year:>=2000  rating:7  rating:<5  critic:80  type:movie|series

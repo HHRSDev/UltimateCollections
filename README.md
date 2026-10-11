@@ -1,5 +1,22 @@
 # Ultimate Collections for Emby
 
+> **This repository is a fork.** Ultimate Collections was created by **jdwaymire (WaymireNET)**, and the original
+> project lives at [jdwaymire/UltimateCollections](https://github.com/jdwaymire/UltimateCollections). The plugin, its design and this README (apart
+> from the marked additions) are the original author's work, and wherever this README says "I" or "my", that is the original author speaking.
+>
+> This fork, [HHRSDev/UltimateCollections](https://github.com/HHRSDev/UltimateCollections), only adds the changes
+> listed below on top of the original. Each place where this README describes them is marked **[Fork addition]**; everything
+> without that mark is unchanged from the original.
+>
+> 1. **`match` expressions**: combine sources with AND, OR and NOT, and select by Emby's own metadata (tags,
+>    genres, studios, people, years, ratings, parental rating).
+> 2. **`tmdb_actor` with `tv yes`**: actor collections can include the actor's TV shows (the original refuses
+>    that combination).
+> 3. **Documentation** for those changes in [`docs/`](docs/README.md).
+>
+> Problems with these additions belong in this fork's Issues, not the original project's. The "Buy me a coffee"
+> links, the Support section and the Disclaimer are the original author's.
+
 **A drop-dead simple collections manager for Emby that keeps itself up to date.**
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/waymirenet)
@@ -40,9 +57,10 @@ updated every night.
 
 You write a short description of each collection, and the plugin does the rest every night:
 
-- finds the matching titles using **TMDb keywords, actors, release years and ratings**, **public MDBList lists**,
-  simply **words in the title**, or **Emby's own metadata** (tags, genres, studios, actors, directors, years,
-  ratings), combined with **AND / OR / NOT** when you need to;
+- finds the matching titles using **TMDb keywords, actors, release years and ratings**, **public MDBList lists**, or
+  simply **words in the title**;
+- **[Fork addition]** also finds them by **Emby's own metadata** (tags, genres, studios, actors, directors, years, ratings),
+  combined with **AND / OR / NOT** when you need to;
 - puts the ones **you actually own** into an Emby collection, and keeps it up to date as your library grows;
 - creates **seasonal collections** only during their season (Halloween in October, Christmas in December) and removes
   them afterwards;
@@ -59,7 +77,7 @@ You write a short description of each collection, and the plugin does the rest e
 3. [First run](#first-run)
 4. [The settings page](#the-settings-page)
 5. [Writing collections: the config language](#writing-collections-the-config-language)
-   - [Combining selectors with AND, OR and NOT: `match`](#combining-selectors-with-and-or-and-not-match)
+   - [Combining selectors with AND, OR and NOT: `match`](#combining-selectors-with-and-or-and-not-match) (fork addition)
 6. [Recipes: examples explained](#recipes-examples-explained)
 7. [Posters and backdrops](#posters-and-backdrops)
 8. [How the nightly sync works](#how-the-nightly-sync-works)
@@ -71,12 +89,13 @@ You write a short description of each collection, and the plugin does the rest e
 14. [Disclaimer](#disclaimer)
 15. [Credits](#credits)
 
-More documentation in [`docs/`](docs/README.md):
+**[Fork addition]** More documentation in [`docs/`](docs/README.md), written for this fork:
 
-- **[Configuration Guide](docs/Configuration-Guide.md)**: the complete guide to writing collections, including
-  boolean `match` expressions, every selector, a cookbook and the error messages.
-- **[Boolean Match Expressions](docs/Boolean-Match.md)**: how `match` and the Emby metadata selectors were built,
-  tested and kept backwards compatible.
+- **[Configuration Guide](docs/Configuration-Guide.md)**: a guide to writing collections that covers the original
+  plugin's settings and this fork's additions together (`match` expressions, every selector, actors with their TV
+  shows, a cookbook and the error messages), with the fork's additions marked.
+- **[Fork Changes](docs/Boolean-Match.md)**: exactly what this fork changed in the original plugin, how it was
+  built and tested, and how it stays backwards compatible.
 
 ---
 
@@ -97,6 +116,10 @@ serializer and Emby's own SkiaSharp for drawing the posters.
 
 1. Download `UltimateCollections.dll` from the
    [Releases page](https://github.com/jdwaymire/UltimateCollections/releases).
+
+   **[Fork addition]** The DLL on the original project's Releases page does **not** contain this fork's additions. To get them,
+   use a release from [this fork's Releases page](https://github.com/HHRSDev/UltimateCollections/releases) if one
+   has been published, or build the DLL from this repository (see [Building from source](#building-from-source)).
 2. Copy it into Emby's `plugins` folder:
 
    | System | Usual plugins folder |
@@ -190,8 +213,8 @@ Below the form is the **Danger zone** with *Delete All Collections* (see [below]
 
 ## Writing collections: the config language
 
-This section is the summary. The [Configuration Guide](docs/Configuration-Guide.md) covers the same ground in more
-depth, with a cookbook of `match` recipes.
+**[Fork addition]** The [Configuration Guide](docs/Configuration-Guide.md) in this fork covers this section in more depth,
+including the fork's additions and a cookbook of `match` recipes.
 
 The text box holds plain text with **sections** and **`key value`** lines.
 
@@ -231,11 +254,11 @@ Rules:
 | Key | Example | Meaning |
 |---|---|---|
 | `tmdb_keyword` | `tmdb_keyword time travel` | Movies TMDb has tagged with this keyword. Use the exact keyword name (or its numeric id). |
-| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast, and with `tv yes` also the shows they acted in. Exact name or numeric TMDb person id. |
+| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast. Exact name or numeric TMDb person id. **[Fork addition]** With `tv yes`, also the shows they acted in. |
 | `release_years` | `release_years 1980 1989` | All TMDb movies released in these years (both included). Combine with `min_rating` / `min_votes`, or you get thousands. |
 | `mdblist` | `mdblist k0meta/christmas-extravaganza` | A **public** list from [mdblist.com](https://mdblist.com). Use the `user/list` part of the list's address. Free, no account needed. |
 | `title` | `title Star Trek` | Titles **in your library** whose name contains this text (not case sensitive). Needs no internet at all. |
-| `match` | `match tag:Christmas AND NOT genre:Horror` | A boolean expression over selectors, including Emby's own tags, genres, people and more. See [below](#combining-selectors-with-and-or-and-not-match). |
+| `match` | `match tag:Christmas AND NOT genre:Horror` | **[Fork addition]** A boolean expression over selectors, including Emby's own tags, genres, people and more. See [below](#combining-selectors-with-and-or-and-not-match). |
 
 **Finding keywords:** search for a movie on themoviedb.org, scroll down to **Keywords** on its page, and click one:
 the keyword page shows its name and, in the address, its id (`themoviedb.org/keyword/4379-time-travel/movie`
@@ -274,10 +297,12 @@ This is the one rule worth reading twice:
 - **`mdblist` and `title` are added on top (OR).** Their titles join whatever the TMDb part found.
 - Only the last `release_years` line counts.
 
-When those fixed rules are not what you want (an actor **and** a genre, a tag **or** a keyword, anything **but**
+**[Fork addition]** When those fixed rules are not what you want (an actor **and** a genre, a tag **or** a keyword, anything **but**
 horror), use `match` instead.
 
 ### Combining selectors with AND, OR and NOT: `match`
+
+**[Fork addition]** This whole section describes a change made in this fork; the original plugin has no `match` key.
 
 `match` takes a small expression and gives you full control over how sources combine:
 
@@ -350,7 +375,7 @@ Rules:
 | Key | Example | Meaning |
 |---|---|---|
 | `season` | `season 10-01 10-31` | The collection exists only between these two dates (month-day, both included), every year. Outside the window it is deleted; it comes back on the first day of the next season. The window may cross New Year: `season 12-26 01-04`. No `season` = the collection is permanent. |
-| `tv` | `tv yes` | Also include **TV shows** from the same sources (default: movies only). For `tmdb_actor` the shows come from the actor's TMDb TV credits, without appearances as themselves (talk shows, award shows). TMDb uses different genres for TV (there is no "Horror" for shows), so movie-only genres in `exclude_genre` are skipped by TMDb for the TV part (Emby's genres are still checked). |
+| `tv` | `tv yes` | Also include **TV shows** from the same sources (default: movies only). TMDb uses different genres for TV (there is no "Horror" for shows), so movie-only genres in `exclude_genre` are skipped for the TV part. Original: "Not possible together with `tmdb_actor`." **[Fork addition]** Now possible: for `tmdb_actor` the shows come from the actor's TMDb TV credits, without appearances as themselves (talk shows, award shows). |
 | `min_items` | `min_items 5` | Overrides the global `min_items` for this collection. |
 | `max_pages` | `max_pages 25` | Overrides the global `max_pages` for this collection (25 pages = top 500 titles). |
 
@@ -477,7 +502,7 @@ min_votes     500              # skip tiny appearances in obscure films
 Every movie with Tom Hanks in the cast that you own. If two people share a name, TMDb's most popular one is used; to
 be sure, use the person's id from their TMDb page address (`themoviedb.org/person/31-tom-hanks` = `tmdb_actor 31`).
 
-Add `tv yes` to include the shows they acted in as well. TMDb's TV search cannot filter by actor, so those come
+**[Fork addition]** Add `tv yes` to include the shows they acted in as well. TMDb's TV search cannot filter by actor, so those come
 from the person's TMDb TV credits, one extra request per actor; appearances as themselves (talk shows, award shows,
 hosting) are left out, and `release_years`, `min_rating`, `min_votes` and `exclude_genre` filter the shows too.
 
@@ -541,6 +566,8 @@ min_items     8
 collection of two.
 
 ### 14. Boolean collections with `match`
+
+**[Fork addition]** Recipe added in this fork.
 
 ```ini
 [collection Hanks at War]
@@ -720,7 +747,7 @@ The plugin keeps its files in its **data folder**, inside Emby's `plugins` folde
 |---|---|
 | `logs/YYYY-MM-DD.log` | One log file per day, kept for 30 days. Everything also goes to Emby's server log (search for "Ultimate Collections"). |
 | `lists/` | The saved downloads, one file per collection. Safe to delete; they are downloaded again on the next run. |
-| `lists/match/` | The saved downloads of online selectors in `match` expressions, one file per selector. Safe to delete too. |
+| `lists/match/` | **[Fork addition]** The saved downloads of online selectors in `match` expressions, one file per selector. Safe to delete too. |
 | `state.json` | Which collections the plugin created (by Emby id). **Do not delete:** without it the plugin no longer knows which collections are its own and leaves them alone. |
 | `artwork-state.json` | What each collection's poster and backdrop were made from, so unchanged artwork is not uploaded again. |
 | `previews/` | Posters and backdrops drawn during a dry run. |
@@ -779,9 +806,10 @@ by hand to one of its collections are removed again. Make your own collection (w
 titles; the plugin never touches it.
 
 **Does it work for TV shows?** Yes, with `tv yes` in a collection: shows come from `title`, TMDb keywords and years,
-MDBList lists that contain shows, `tmdb_actor` (from the actor's TMDb TV credits), and every selector in `match`.
+and MDBList lists that contain shows. `tmdb_actor` is movies only in the original. **[Fork addition]** In this fork `tmdb_actor`
+also finds shows (from the actor's TMDb TV credits), and every selector in `match` works for shows.
 
-**A `match` selector says it "matches nothing in the library".** The value must match what Emby shows, apart from
+**[Fork addition]** **A `match` selector says it "matches nothing in the library".** The value must match what Emby shows, apart from
 upper/lower case: check the tag, genre or person's name on a title's page in Emby. Values with spaces need
 quotes.
 
@@ -800,7 +828,8 @@ runs cost no API requests until a list is due.
 
 ## Building from source
 
-You only need this if you want to change the plugin; the ready-made DLL is on the Releases page.
+You only need this if you want to change the plugin; the ready-made DLL is on the Releases page. **[Fork addition]** Building from
+this repository is also how to get the fork's additions when this fork has no release of its own.
 
 1. Install the [.NET SDK](https://dotnet.microsoft.com/download) (version 8 or newer).
 2. In the repository folder, run:
@@ -817,6 +846,9 @@ time, so the plugin stays a single DLL. Poster drawing uses the SkiaSharp librar
 
 ## Support
 
+> This section is the original author's (jdwaymire / WaymireNET). "I" and "me" below are the original author, and
+> the coffee link supports the original author.
+
 Ultimate Collections is free and always will be. I build tools like this mostly for myself and share them in case
 they help someone else too. If it saved you some time or made your movie nights a little better, you can
 [buy me a coffee](https://buymeacoffee.com/waymirenet). It keeps the tinkering going. Thank you!
@@ -824,6 +856,9 @@ they help someone else too. If it saved you some time or made your movie nights 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/waymirenet)
 
 ## Disclaimer
+
+> This section is the original author's (jdwaymire / WaymireNET), and "I" and "my" below are the original author.
+> It applies equally to this fork: the fork's additions come with the same lack of guarantees.
 
 Ultimate Collections is a free, hobby project, shared in the hope that it is useful to you. Please read this before
 you install it:
@@ -849,11 +884,16 @@ The legal version of this is the [MIT License](LICENSE) the plugin is released u
 
 ## Credits
 
+- **Ultimate Collections** was created by **jdwaymire (WaymireNET)**: [jdwaymire/UltimateCollections](https://github.com/jdwaymire/UltimateCollections).
+- **This fork** ([HHRSDev/UltimateCollections](https://github.com/HHRSDev/UltimateCollections)) adds `match`
+  expressions with Emby metadata selectors, `tmdb_actor` with `tv yes`, and the documentation in `docs/`. See
+  [the change write-up](docs/Boolean-Match.md) for exactly what was changed.
 - Movie data from **[TMDb](https://www.themoviedb.org/)**. This product uses the TMDB API but is not endorsed or
   certified by TMDB.
 - Public lists from **[MDBList](https://mdblist.com/)**.
 - Poster font **Bebas Neue** by Ryoichi Tsunekawa, SIL Open Font License 1.1 (included as `BebasNeue-OFL.txt`).
 - Built for **[Emby](https://emby.media/)**; not affiliated with or endorsed by Emby LLC.
 
-Ultimate Collections is released under the [MIT License](LICENSE). The Bebas Neue font keeps its own SIL Open Font
+Ultimate Collections is released under the [MIT License](LICENSE) (copyright WaymireNET); this fork keeps that
+licence. The Bebas Neue font keeps its own SIL Open Font
 License 1.1.

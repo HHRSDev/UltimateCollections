@@ -13,19 +13,21 @@
  a{color:#0066cc}
  hr{border:0;border-top:1px solid #dcdcdc;margin:2em 0}
 </style></head><body>
-<h1>Boolean Match Expressions and Emby Metadata Selectors</h1>
-<p>The change that added the <code>match</code> key to Ultimate Collections. This page covers what it does, how it is built,</p>
-<p>what was tested, and why existing configurations are unaffected. For how to <strong>use</strong> it, see the</p>
-<p><a href="Configuration-Guide.md">Configuration Guide</a>.</p>
+<h1>Fork Changes: Boolean Match Expressions and Actor TV Shows</h1>
+<blockquote><strong>Whose work is what.</strong> Ultimate Collections was created by <strong>jdwaymire (WaymireNET)</strong>: the plugin, its design, its configuration language and its original documentation are the original author's work (<a href="https://github.com/jdwaymire/UltimateCollections">original project</a>). This document describes <strong>only the changes made in the HHRSDev fork</strong> on top of that work. Anything not described here is the original author's and is unchanged.</blockquote>
+<p>This page covers the fork's two changes: the <code>match</code> key (sections 1 to 7) and <code>tmdb_actor</code> with <code>tv yes</code></p>
+<p>(section 8). It covers what each does, how it is built, what was tested, and why existing configurations are</p>
+<p>unaffected. For how to <strong>use</strong> them, see the <a href="Configuration-Guide.md">Configuration Guide</a>.</p>
 <table>
 <tr><th></th><th></th></tr>
-<tr><td>Fork</td><td>github.com/HHRSDev/UltimateCollections (forked from jdwaymire/UltimateCollections)</td></tr>
-<tr><td>Date</td><td>2026-10-10</td></tr>
-<tr><td>Status</td><td>Built and tested on a live Emby server by the fork owner</td></tr>
+<tr><td>Original project</td><td>github.com/jdwaymire/UltimateCollections, by jdwaymire (WaymireNET)</td></tr>
+<tr><td>Fork</td><td>github.com/HHRSDev/UltimateCollections</td></tr>
+<tr><td>Date of the changes</td><td>2026-10-10</td></tr>
+<tr><td>Status</td><td>Both changes built and tested on a live Emby server by the fork owner</td></tr>
 </table>
 <hr />
 <h2>1. What was missing</h2>
-<p>The original plugin fills a collection from a fixed set of sources (<code>tmdb_keyword</code>, <code>tmdb_actor</code>, <code>release_years</code>,</p>
+<p>The original plugin (as written by jdwaymire) fills a collection from a fixed set of sources (<code>tmdb_keyword</code>, <code>tmdb_actor</code>, <code>release_years</code>,</p>
 <p><code>mdblist</code>, <code>title</code>) that combine by fixed rules:</p>
 <ul>
 <li>the same key repeated means ANY;</li>
@@ -177,8 +179,7 @@ not  := NOT not  /  '(' expr ')'  /  field:value
 <li>Saved lists: one download per distinct selector and settings; saved under <code>lists/match/</code>; reused on the next run; unused ones pruned while simple-source lists are kept; a collection converted to <code>match</code> loses its old saved list.</li>
 </ul>
 <p><strong>Compatibility.</strong> See section 5.</p>
-<p><strong>Live.</strong> Tested by the fork owner on their Emby server, 2026-10-10, before the clean-up change in section 3.4 (which</p>
-<p>only affects which stale files are deleted).</p>
+<p><strong>Live.</strong> Tested by the fork owner on their Emby server, 2026-10-10, including the clean-up change in section 3.4.</p>
 <hr />
 <h2>7. Known limits and possible next steps</h2>
 <ul>
@@ -216,6 +217,6 @@ not  := NOT not  /  '(' expr ')'  /  field:value
 <p>appearances; no TV request without <code>tv yes</code>; <code>release_years</code>, <code>min_rating</code> / <code>min_votes</code> and <code>exclude_genre</code> filter</p>
 <p>the shows; a movie-only excluded genre is skipped without error; a keyword narrows the shows; an excluded keyword</p>
 <p>removes them; the person is searched once per run; the <code>match</code> selector requests and returns TV. The 28 earlier</p>
-<p>checks still pass. Not yet run against the live TMDb API or a live Emby server.</p>
+<p>checks still pass. Tested by the fork owner on their Emby server against the live TMDb API, 2026-10-10.</p>
 
 </body></html>
