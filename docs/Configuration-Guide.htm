@@ -92,7 +92,7 @@ list_refresh_days  14
 <table>
 <tr><th>Key</th><th>Example</th><th>Meaning</th></tr>
 <tr><td><code>tmdb_keyword</code></td><td><code>tmdb_keyword time travel</code></td><td>Movies TMDb has tagged with this keyword (exact name, or the numeric id).</td></tr>
-<tr><td><code>tmdb_actor</code></td><td><code>tmdb_actor Tom Hanks</code></td><td>Movies with this actor in the cast, according to TMDb. Movies only.</td></tr>
+<tr><td><code>tmdb_actor</code></td><td><code>tmdb_actor Tom Hanks</code></td><td>Movies with this actor in the cast, according to TMDb. With <code>tv yes</code>, also the shows they acted in (section 4.1).</td></tr>
 <tr><td><code>release_years</code></td><td><code>release_years 1980 1989</code></td><td>All TMDb movies released in these years. Use with <code>min_rating</code> / <code>min_votes</code>.</td></tr>
 <tr><td><code>mdblist</code></td><td><code>mdblist k0meta/christmas-extravaganza</code></td><td>A public list from mdblist.com (the <code>user/list</code> part of its address).</td></tr>
 <tr><td><code>title</code></td><td><code>title Star Trek</code></td><td>Library titles whose name contains this text. No internet needed.</td></tr>
@@ -113,6 +113,25 @@ list_refresh_days  14
 <li>Only the last <code>release_years</code> line counts.</li>
 </ul>
 <p>These rules are fixed. If they are not what you want, use <code>match</code>.</p>
+<h3>4.1 Actors and TV shows</h3>
+<p><code>tmdb_actor</code> with <code>tv yes</code> includes the actor's TV shows as well as their movies:</p>
+<pre><code>
+[collection Sydney Sweeney]
+tmdb_actor    Sydney Sweeney
+tv            yes
+poster_title  SYDNEY|SWEENEY
+poster_accent 170,210,70
+poster_tint   35,50,15
+</code></pre>
+<p>How the shows are found: TMDb's search can filter movies by actor but not shows, so the plugin reads the person's</p>
+<p><strong>TMDb TV credits</strong> instead (one extra request per actor). From those credits:</p>
+<ul>
+<li>appearances <strong>as themselves</strong> (a role of Self, Himself or Herself: talk shows, award shows, hosting) and talk, news and reality shows are left out, so the collection holds the shows they <strong>acted</strong> in;</li>
+<li><code>release_years</code> is checked against each show's first air year, <code>min_rating</code> and <code>min_votes</code> against its TMDb rating and vote count, and <code>exclude_genre</code> against its TMDb TV genres (movie-only genres such as Horror are skipped there, but Emby's genres are still checked);</li>
+<li>a <code>tmdb_keyword</code> in the same collection keeps only the shows that also have that keyword (AND, as for movies);</li>
+<li>an <code>exclude_keyword</code> removes the shows that have that keyword.</li>
+</ul>
+<p>As always, only the shows you own end up in the collection, matched by their TMDb id.</p>
 <hr />
 <h2>5. Boolean collections: the match key</h2>
 <h3>5.1 The idea</h3>
@@ -212,14 +231,17 @@ tv     yes
 <table>
 <tr><th>Selector</th><th>Example</th><th>Matches</th><th>Notes</th></tr>
 <tr><td><code>tmdb_keyword:</code></td><td><code>tmdb_keyword:"time travel"</code></td><td>Titles TMDb tagged with this keyword.</td><td>Exact keyword name or numeric id. With <code>tv yes</code> also shows.</td></tr>
-<tr><td><code>tmdb_actor:</code></td><td><code>tmdb_actor:"Tom Hanks"</code></td><td>Movies with this actor according to TMDb.</td><td>Movies only, even with <code>tv yes</code>. Name or numeric person id.</td></tr>
+<tr><td><code>tmdb_actor:</code></td><td><code>tmdb_actor:"Tom Hanks"</code></td><td>Movies with this actor according to TMDb; with <code>tv yes</code> also the shows they acted in.</td><td>Shows come from TMDb TV credits (section 4.1). Name or numeric person id.</td></tr>
 <tr><td><code>mdblist:</code></td><td><code>mdblist:k0meta/christmas-extravaganza</code></td><td>Titles on this public MDBList list.</td><td>Shows only with <code>tv yes</code>.</td></tr>
 </table>
 <p><code>min_rating</code>, <code>min_votes</code> and <code>max_pages</code> in the collection are passed to TMDb for <code>tmdb_keyword:</code> and</p>
 <p><code>tmdb_actor:</code>, exactly as they are for simple sources.</p>
-<p><strong><code>actor:</code> or <code>tmdb_actor:</code>?</strong> <code>actor:</code> uses Emby's own cast lists. It is free, instant, covers series, and sees</p>
-<p>exactly what Emby sees. <code>tmdb_actor:</code> asks TMDb and costs a download. Prefer <code>actor:</code> unless your Emby metadata lacks</p>
-<p>cast information.</p>
+<p><strong><code>actor:</code> or <code>tmdb_actor:</code>?</strong> <code>actor:</code> uses Emby's own cast lists. It is free and instant, and sees exactly what</p>
+<p>Emby sees. For series, though, Emby usually keeps only the main cast on the series itself (guest roles are on the</p>
+<p>episodes), so <code>actor:</code> finds the shows where the person is a regular. <code>tmdb_actor:</code> asks TMDb and costs a download,</p>
+<p>but with <code>tv yes</code> it reads the person's full TMDb TV credits, guest and recurring roles included. Use <code>actor:</code> for</p>
+<p>speed and for anything Emby-specific, <code>tmdb_actor:</code> when you want every show they acted in, or combine them:</p>
+<p><code>actor:"Sydney Sweeney" OR tmdb_actor:"Sydney Sweeney"</code>.</p>
 <p><strong><code>year:</code> or a TMDb year search?</strong> <code>year:1980..1989</code> is free and reads your library. There is no TMDb year selector</p>
 <p>in <code>match</code>, and none is needed: narrow with <code>year:</code> instead.</p>
 <hr />
@@ -322,14 +344,27 @@ season  12-01 12-31
 match  genre:Animation AND (rated:G OR rated:PG OR rated:TV-Y OR rated:TV-Y7 OR rated:TV-G)
 tv     yes
 </code></pre>
-<h3>9.11 A keyword with a TMDb quality bar</h3>
+<h3>9.11 An actor's movies and shows</h3>
+<pre><code>
+[collection Sydney Sweeney]
+tmdb_actor  Sydney Sweeney
+tv          yes
+</code></pre>
+<p>Every movie and show she acted in that you own. The simple key is all you need here; see section 4.1 for how the</p>
+<p>shows are found. The <code>match</code> form does the same and can be extended:</p>
+<pre><code>
+[collection Sydney Sweeney, no horror]
+match  tmdb_actor:"Sydney Sweeney" AND NOT genre:Horror
+tv     yes
+</code></pre>
+<h3>9.12 A keyword with a TMDb quality bar</h3>
 <pre><code>
 [collection Great Heists]
 match      tmdb_keyword:heist AND NOT genre:Documentary
 min_votes  1000
 </code></pre>
 <p><code>min_votes</code> is passed to TMDb for the keyword, so only well-known heist movies are listed.</p>
-<h3>9.12 Critics' picks</h3>
+<h3>9.13 Critics' picks</h3>
 <pre><code>
 [collection Critics' Picks]
 match      critic:90 AND year:&gt;=2000

@@ -98,7 +98,7 @@ one of those has a selector that means the same thing inside the expression (see
 | Key | Example | Meaning |
 |---|---|---|
 | `tmdb_keyword` | `tmdb_keyword time travel` | Movies TMDb has tagged with this keyword (exact name, or the numeric id). |
-| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast, according to TMDb. Movies only. |
+| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast, according to TMDb. With `tv yes`, also the shows they acted in (section 4.1). |
 | `release_years` | `release_years 1980 1989` | All TMDb movies released in these years. Use with `min_rating` / `min_votes`. |
 | `mdblist` | `mdblist k0meta/christmas-extravaganza` | A public list from mdblist.com (the `user/list` part of its address). |
 | `title` | `title Star Trek` | Library titles whose name contains this text. No internet needed. |
@@ -120,6 +120,29 @@ How simple sources combine:
 - Only the last `release_years` line counts.
 
 These rules are fixed. If they are not what you want, use `match`.
+
+### 4.1 Actors and TV shows
+
+`tmdb_actor` with `tv yes` includes the actor's TV shows as well as their movies:
+
+```ini
+[collection Sydney Sweeney]
+tmdb_actor    Sydney Sweeney
+tv            yes
+poster_title  SYDNEY|SWEENEY
+poster_accent 170,210,70
+poster_tint   35,50,15
+```
+
+How the shows are found: TMDb's search can filter movies by actor but not shows, so the plugin reads the person's
+**TMDb TV credits** instead (one extra request per actor). From those credits:
+
+- appearances **as themselves** (a role of Self, Himself or Herself: talk shows, award shows, hosting) and talk, news and reality shows are left out, so the collection holds the shows they **acted** in;
+- `release_years` is checked against each show's first air year, `min_rating` and `min_votes` against its TMDb rating and vote count, and `exclude_genre` against its TMDb TV genres (movie-only genres such as Horror are skipped there, but Emby's genres are still checked);
+- a `tmdb_keyword` in the same collection keeps only the shows that also have that keyword (AND, as for movies);
+- an `exclude_keyword` removes the shows that have that keyword.
+
+As always, only the shows you own end up in the collection, matched by their TMDb id.
 
 ---
 
@@ -242,15 +265,18 @@ These download a list, so they need the internet (and, for TMDb, your token). Th
 | Selector | Example | Matches | Notes |
 |---|---|---|---|
 | `tmdb_keyword:` | `tmdb_keyword:"time travel"` | Titles TMDb tagged with this keyword. | Exact keyword name or numeric id. With `tv yes` also shows. |
-| `tmdb_actor:` | `tmdb_actor:"Tom Hanks"` | Movies with this actor according to TMDb. | Movies only, even with `tv yes`. Name or numeric person id. |
+| `tmdb_actor:` | `tmdb_actor:"Tom Hanks"` | Movies with this actor according to TMDb; with `tv yes` also the shows they acted in. | Shows come from TMDb TV credits (section 4.1). Name or numeric person id. |
 | `mdblist:` | `mdblist:k0meta/christmas-extravaganza` | Titles on this public MDBList list. | Shows only with `tv yes`. |
 
 `min_rating`, `min_votes` and `max_pages` in the collection are passed to TMDb for `tmdb_keyword:` and
 `tmdb_actor:`, exactly as they are for simple sources.
 
-**`actor:` or `tmdb_actor:`?** `actor:` uses Emby's own cast lists. It is free, instant, covers series, and sees
-exactly what Emby sees. `tmdb_actor:` asks TMDb and costs a download. Prefer `actor:` unless your Emby metadata lacks
-cast information.
+**`actor:` or `tmdb_actor:`?** `actor:` uses Emby's own cast lists. It is free and instant, and sees exactly what
+Emby sees. For series, though, Emby usually keeps only the main cast on the series itself (guest roles are on the
+episodes), so `actor:` finds the shows where the person is a regular. `tmdb_actor:` asks TMDb and costs a download,
+but with `tv yes` it reads the person's full TMDb TV credits, guest and recurring roles included. Use `actor:` for
+speed and for anything Emby-specific, `tmdb_actor:` when you want every show they acted in, or combine them:
+`actor:"Sydney Sweeney" OR tmdb_actor:"Sydney Sweeney"`.
 
 **`year:` or a TMDb year search?** `year:1980..1989` is free and reads your library. There is no TMDb year selector
 in `match`, and none is needed: narrow with `year:` instead.
@@ -393,7 +419,24 @@ match  genre:Animation AND (rated:G OR rated:PG OR rated:TV-Y OR rated:TV-Y7 OR 
 tv     yes
 ```
 
-### 9.11 A keyword with a TMDb quality bar
+### 9.11 An actor's movies and shows
+
+```ini
+[collection Sydney Sweeney]
+tmdb_actor  Sydney Sweeney
+tv          yes
+```
+
+Every movie and show she acted in that you own. The simple key is all you need here; see section 4.1 for how the
+shows are found. The `match` form does the same and can be extended:
+
+```ini
+[collection Sydney Sweeney, no horror]
+match  tmdb_actor:"Sydney Sweeney" AND NOT genre:Horror
+tv     yes
+```
+
+### 9.12 A keyword with a TMDb quality bar
 
 ```ini
 [collection Great Heists]
@@ -403,7 +446,7 @@ min_votes  1000
 
 `min_votes` is passed to TMDb for the keyword, so only well-known heist movies are listed.
 
-### 9.12 Critics' picks
+### 9.13 Critics' picks
 
 ```ini
 [collection Critics' Picks]

@@ -150,12 +150,12 @@ namespace UltimateCollections.Core
 
         // An online selector's list is downloaded and saved like a collection's list, under a name made of the
         // selector and the owning collection's download settings. Two collections using the same selector with the
-        // same settings share one saved list. tmdb_actor never asks for TV: TMDb's TV search has no cast filter.
-        // min_rating / min_votes / max_pages only mean something for TMDb, so mdblist leaves them out.
+        // same settings share one saved list. min_rating / min_votes / max_pages only mean something for TMDb, so
+        // mdblist leaves them out.
         public CollectionDefinition ListDefinition(CollectionDefinition owner, int maxPagesDefault)
         {
             var tmdb = Field != "mdblist";
-            var tv = owner.WantsTv && Field != "tmdb_actor";
+            var tv = owner.WantsTv;
             var pages = owner.Get("max_pages") ?? maxPagesDefault.ToString(CultureInfo.InvariantCulture);
             var values = new Dictionary<string, string>();
             if (tv)

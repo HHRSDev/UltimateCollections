@@ -117,7 +117,7 @@ In `Syncer.MatchAsync`:
 
 - They live in a separate folder, `lists/match/`, managed by a second `ListCache` instance.
 - A file's name is derived from the selector and the download-relevant settings (for example `tmdb_keyword=christmas max_pages=100 tv=yes`), so two collections using the same selector with the same settings share one download.
-- `tmdb_actor:` never requests TV (TMDb's TV search has no cast filter), so it ignores `tv yes` rather than failing as the simple `tmdb_actor` key does.
+- `tmdb_actor:` with `tv yes` requests TV like the other online selectors; the shows come from the person's TMDb TV credits (section 8).
 - `mdblist:` does not include `max_pages`, `min_rating` or `min_votes` in its name, since they do not affect it.
 - After a full run, saved lists no collection uses any more are deleted. The existing clean-up of `lists/` now skips collections that use `match`, so a collection converted to `match` loses its stale saved list.
 
@@ -209,6 +209,43 @@ only affects which stale files are deleted).
 ## 7. Known limits and possible next steps
 
 - **Poster preview.** The Poster style popup previews a `match` collection with its own titles once it exists in Emby. Before that (new, or out of season) it falls back to the best-rated movies in the library, because the preview reads saved lists by collection name and a `match` collection has none. Evaluating the expression in the preview would close this gap.
+- **Emby's `actor:` and series.** Emby usually keeps guest and recurring roles on episodes, not on the series, so `actor:` finds the series where the person is a regular. Looking up episodes and mapping them to their series would close this; until then `tmdb_actor:` with `tv yes` covers guest roles.
 - **Person names** must match Emby's spelling apart from case. A future version could accept a person's TMDb or IMDb id.
 - **More selectors** fit the same pattern: library (`library:`), collection membership, date added, runtime, resolution, audio language, played or favourite for a given user. Each is a new entry in `MatchAtom` plus, where needed, a field loaded in `EmbyLibrary`.
 - **Release.** The project version is still 1.0.0. A release needs `<Version>` in `UltimateCollections.csproj` bumped (for example to 1.1.0) and a matching `v1.1.0` tag pushed; the release workflow builds and attaches the DLL.
+
+---
+
+## 8. Addendum: tmdb_actor with tv yes
+
+Added the same day, after the fork owner asked for actor collections to include TV shows.
+
+**The limit.** The original plugin refused `tmdb_actor` together with `tv yes` ("tmdb_actor works for movies only")
+because TMDb's `/discover/tv` endpoint has no cast filter, while `/discover/movie` has `with_cast`.
+
+**The fix.** For the TV part of a `tmdb_actor` collection, `ListFetcher.ActorTvAsync` uses TMDb's
+`/3/person/{id}/tv_credits` instead: one request per actor, returning every show the person has a cast credit on.
+`TmdbClient.PersonTvAsync` then:
+
+- drops appearances as oneself (a character starting with Self, Himself, Herself, Themselves or Themself) and shows in TMDb's Talk, News and Reality TV genres (10767, 10763, 10764), so an actor collection holds the shows they acted in rather than every chat show they promoted a film on;
+- applies the filters discover would have applied, from the credit itself: `release_years` against the first air year, `min_rating` and `min_votes` against the show's vote average and count, and `exclude_genre` against its TV genre ids (movie-only genre names are skipped, as discover does).
+
+The rest of the collection narrows the result the way one discover query would:
+
+- with `tmdb_keyword`, only shows also returned by a TV discover for those keywords (with all filters) are kept (AND);
+- with only `exclude_keyword`, shows returned by a TV discover for the excluded keywords are removed.
+
+The movie part is unchanged (`/discover/movie` with `with_cast`). Person ids are now cached for the run, so an actor
+is searched once for both parts. In `match`, `tmdb_actor:` passes `tv yes` through like the other online selectors.
+
+**Compatibility.** Only collections with both `tmdb_actor` and `tv yes` take the new path, and those were rejected
+with an error before, so no working configuration changes behaviour. The old-versus-new comparison of section 5 was
+re-run after this change and is still byte-identical. A collection that gains `tv yes` gets a new fingerprint and
+downloads its list once, as any settings change does.
+
+**Testing.** 13 checks against the real `TmdbClient` and `ListFetcher` with a fake HTTP layer returning canned TMDb
+responses: movies still come from discover; the TV part keeps acting roles and drops Self, talk-show and chat
+appearances; no TV request without `tv yes`; `release_years`, `min_rating` / `min_votes` and `exclude_genre` filter
+the shows; a movie-only excluded genre is skipped without error; a keyword narrows the shows; an excluded keyword
+removes them; the person is searched once per run; the `match` selector requests and returns TV. The 28 earlier
+checks still pass. Not yet run against the live TMDb API or a live Emby server.

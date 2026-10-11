@@ -109,7 +109,7 @@ not  := NOT not  /  '(' expr ')'  /  field:value
 <ul>
 <li>They live in a separate folder, <code>lists/match/</code>, managed by a second <code>ListCache</code> instance.</li>
 <li>A file's name is derived from the selector and the download-relevant settings (for example <code>tmdb_keyword=christmas max_pages=100 tv=yes</code>), so two collections using the same selector with the same settings share one download.</li>
-<li><code>tmdb_actor:</code> never requests TV (TMDb's TV search has no cast filter), so it ignores <code>tv yes</code> rather than failing as the simple <code>tmdb_actor</code> key does.</li>
+<li><code>tmdb_actor:</code> with <code>tv yes</code> requests TV like the other online selectors; the shows come from the person's TMDb TV credits (section 8).</li>
 <li><code>mdblist:</code> does not include <code>max_pages</code>, <code>min_rating</code> or <code>min_votes</code> in its name, since they do not affect it.</li>
 <li>After a full run, saved lists no collection uses any more are deleted. The existing clean-up of <code>lists/</code> now skips collections that use <code>match</code>, so a collection converted to <code>match</code> loses its stale saved list.</li>
 </ul>
@@ -183,9 +183,39 @@ not  := NOT not  /  '(' expr ')'  /  field:value
 <h2>7. Known limits and possible next steps</h2>
 <ul>
 <li><strong>Poster preview.</strong> The Poster style popup previews a <code>match</code> collection with its own titles once it exists in Emby. Before that (new, or out of season) it falls back to the best-rated movies in the library, because the preview reads saved lists by collection name and a <code>match</code> collection has none. Evaluating the expression in the preview would close this gap.</li>
+<li><strong>Emby's <code>actor:</code> and series.</strong> Emby usually keeps guest and recurring roles on episodes, not on the series, so <code>actor:</code> finds the series where the person is a regular. Looking up episodes and mapping them to their series would close this; until then <code>tmdb_actor:</code> with <code>tv yes</code> covers guest roles.</li>
 <li><strong>Person names</strong> must match Emby's spelling apart from case. A future version could accept a person's TMDb or IMDb id.</li>
 <li><strong>More selectors</strong> fit the same pattern: library (<code>library:</code>), collection membership, date added, runtime, resolution, audio language, played or favourite for a given user. Each is a new entry in <code>MatchAtom</code> plus, where needed, a field loaded in <code>EmbyLibrary</code>.</li>
 <li><strong>Release.</strong> The project version is still 1.0.0. A release needs <code>&lt;Version&gt;</code> in <code>UltimateCollections.csproj</code> bumped (for example to 1.1.0) and a matching <code>v1.1.0</code> tag pushed; the release workflow builds and attaches the DLL.</li>
 </ul>
+<hr />
+<h2>8. Addendum: tmdb_actor with tv yes</h2>
+<p>Added the same day, after the fork owner asked for actor collections to include TV shows.</p>
+<p><strong>The limit.</strong> The original plugin refused <code>tmdb_actor</code> together with <code>tv yes</code> ("tmdb_actor works for movies only")</p>
+<p>because TMDb's <code>/discover/tv</code> endpoint has no cast filter, while <code>/discover/movie</code> has <code>with_cast</code>.</p>
+<p><strong>The fix.</strong> For the TV part of a <code>tmdb_actor</code> collection, <code>ListFetcher.ActorTvAsync</code> uses TMDb's</p>
+<p><code>/3/person/{id}/tv_credits</code> instead: one request per actor, returning every show the person has a cast credit on.</p>
+<p><code>TmdbClient.PersonTvAsync</code> then:</p>
+<ul>
+<li>drops appearances as oneself (a character starting with Self, Himself, Herself, Themselves or Themself) and shows in TMDb's Talk, News and Reality TV genres (10767, 10763, 10764), so an actor collection holds the shows they acted in rather than every chat show they promoted a film on;</li>
+<li>applies the filters discover would have applied, from the credit itself: <code>release_years</code> against the first air year, <code>min_rating</code> and <code>min_votes</code> against the show's vote average and count, and <code>exclude_genre</code> against its TV genre ids (movie-only genre names are skipped, as discover does).</li>
+</ul>
+<p>The rest of the collection narrows the result the way one discover query would:</p>
+<ul>
+<li>with <code>tmdb_keyword</code>, only shows also returned by a TV discover for those keywords (with all filters) are kept (AND);</li>
+<li>with only <code>exclude_keyword</code>, shows returned by a TV discover for the excluded keywords are removed.</li>
+</ul>
+<p>The movie part is unchanged (<code>/discover/movie</code> with <code>with_cast</code>). Person ids are now cached for the run, so an actor</p>
+<p>is searched once for both parts. In <code>match</code>, <code>tmdb_actor:</code> passes <code>tv yes</code> through like the other online selectors.</p>
+<p><strong>Compatibility.</strong> Only collections with both <code>tmdb_actor</code> and <code>tv yes</code> take the new path, and those were rejected</p>
+<p>with an error before, so no working configuration changes behaviour. The old-versus-new comparison of section 5 was</p>
+<p>re-run after this change and is still byte-identical. A collection that gains <code>tv yes</code> gets a new fingerprint and</p>
+<p>downloads its list once, as any settings change does.</p>
+<p><strong>Testing.</strong> 13 checks against the real <code>TmdbClient</code> and <code>ListFetcher</code> with a fake HTTP layer returning canned TMDb</p>
+<p>responses: movies still come from discover; the TV part keeps acting roles and drops Self, talk-show and chat</p>
+<p>appearances; no TV request without <code>tv yes</code>; <code>release_years</code>, <code>min_rating</code> / <code>min_votes</code> and <code>exclude_genre</code> filter</p>
+<p>the shows; a movie-only excluded genre is skipped without error; a keyword narrows the shows; an excluded keyword</p>
+<p>removes them; the person is searched once per run; the <code>match</code> selector requests and returns TV. The 28 earlier</p>
+<p>checks still pass. Not yet run against the live TMDb API or a live Emby server.</p>
 
 </body></html>

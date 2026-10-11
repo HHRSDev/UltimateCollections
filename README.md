@@ -231,7 +231,7 @@ Rules:
 | Key | Example | Meaning |
 |---|---|---|
 | `tmdb_keyword` | `tmdb_keyword time travel` | Movies TMDb has tagged with this keyword. Use the exact keyword name (or its numeric id). |
-| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast (movies only). Exact name or numeric TMDb person id. |
+| `tmdb_actor` | `tmdb_actor Tom Hanks` | Movies with this actor in the cast, and with `tv yes` also the shows they acted in. Exact name or numeric TMDb person id. |
 | `release_years` | `release_years 1980 1989` | All TMDb movies released in these years (both included). Combine with `min_rating` / `min_votes`, or you get thousands. |
 | `mdblist` | `mdblist k0meta/christmas-extravaganza` | A **public** list from [mdblist.com](https://mdblist.com). Use the `user/list` part of the list's address. Free, no account needed. |
 | `title` | `title Star Trek` | Titles **in your library** whose name contains this text (not case sensitive). Needs no internet at all. |
@@ -314,7 +314,7 @@ on the person's Emby page).
 | Selector | Example | Matches |
 |---|---|---|
 | `tmdb_keyword:` | `tmdb_keyword:"time travel"` | Titles TMDb has tagged with this keyword. |
-| `tmdb_actor:` | `tmdb_actor:"Tom Hanks"` | Movies with this actor according to TMDb (movies only). |
+| `tmdb_actor:` | `tmdb_actor:"Tom Hanks"` | Movies with this actor according to TMDb, and with `tv yes` the shows they acted in. |
 | `mdblist:` | `mdblist:k0meta/christmas-extravaganza` | A public MDBList list. |
 
 Rules:
@@ -350,7 +350,7 @@ Rules:
 | Key | Example | Meaning |
 |---|---|---|
 | `season` | `season 10-01 10-31` | The collection exists only between these two dates (month-day, both included), every year. Outside the window it is deleted; it comes back on the first day of the next season. The window may cross New Year: `season 12-26 01-04`. No `season` = the collection is permanent. |
-| `tv` | `tv yes` | Also include **TV shows** from the same sources (default: movies only). Not possible together with `tmdb_actor`. TMDb uses different genres for TV (there is no "Horror" for shows), so movie-only genres in `exclude_genre` are skipped for the TV part. |
+| `tv` | `tv yes` | Also include **TV shows** from the same sources (default: movies only). For `tmdb_actor` the shows come from the actor's TMDb TV credits, without appearances as themselves (talk shows, award shows). TMDb uses different genres for TV (there is no "Horror" for shows), so movie-only genres in `exclude_genre` are skipped by TMDb for the TV part (Emby's genres are still checked). |
 | `min_items` | `min_items 5` | Overrides the global `min_items` for this collection. |
 | `max_pages` | `max_pages 25` | Overrides the global `max_pages` for this collection (25 pages = top 500 titles). |
 
@@ -476,6 +476,10 @@ min_votes     500              # skip tiny appearances in obscure films
 
 Every movie with Tom Hanks in the cast that you own. If two people share a name, TMDb's most popular one is used; to
 be sure, use the person's id from their TMDb page address (`themoviedb.org/person/31-tom-hanks` = `tmdb_actor 31`).
+
+Add `tv yes` to include the shows they acted in as well. TMDb's TV search cannot filter by actor, so those come
+from the person's TMDb TV credits, one extra request per actor; appearances as themselves (talk shows, award shows,
+hosting) are left out, and `release_years`, `min_rating`, `min_votes` and `exclude_genre` filter the shows too.
 
 Two actor lines mean *either* actor. Combined with a keyword (`tmdb_actor Tom Hanks` + `tmdb_keyword world war ii`)
 it means *Tom Hanks movies about World War II*.
@@ -775,8 +779,7 @@ by hand to one of its collections are removed again. Make your own collection (w
 titles; the plugin never touches it.
 
 **Does it work for TV shows?** Yes, with `tv yes` in a collection: shows come from `title`, TMDb keywords and years,
-MDBList lists that contain shows, and every Emby selector in `match`. `tmdb_actor` is movies only (in `match`,
-`tmdb_actor:` simply ignores shows; use `actor:` for Emby's cast lists, which cover shows too).
+MDBList lists that contain shows, `tmdb_actor` (from the actor's TMDb TV credits), and every selector in `match`.
 
 **A `match` selector says it "matches nothing in the library".** The value must match what Emby shows, apart from
 upper/lower case: check the tag, genre or person's name on a title's page in Emby. Values with spaces need

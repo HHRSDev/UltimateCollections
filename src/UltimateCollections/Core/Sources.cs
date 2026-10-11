@@ -116,6 +116,18 @@ namespace UltimateCollections.Core
     }
     public sealed class TmdbGenres { public List<TmdbNamed> genres { get; set; } }
     public sealed class MdbListItem { public long? id { get; set; } public string imdb_id { get; set; } public string mediatype { get; set; } }
+    // /3/person/{id}/tv_credits: the shows a person acted in. 'character' tells real roles from appearances as
+    // themselves (talk shows, award shows).
+    public sealed class TmdbTvCredit
+    {
+        public long id { get; set; }
+        public string character { get; set; }
+        public string first_air_date { get; set; }
+        public double vote_average { get; set; }
+        public int vote_count { get; set; }
+        public List<long> genre_ids { get; set; }
+    }
+    public sealed class TmdbTvCredits { public List<TmdbTvCredit> cast { get; set; } }
 #pragma warning restore IDE1006
 
     // ---- TMDb ----
@@ -129,6 +141,7 @@ namespace UltimateCollections.Core
         readonly IJson _json;
         readonly Dictionary<string, string> _headers;
         readonly Dictionary<string, Dictionary<string, long>> _genres = new Dictionary<string, Dictionary<string, long>>();
+        readonly Dictionary<string, long> _ids = new Dictionary<string, long>();
         DateTime _last = DateTime.MinValue;
 
         public int Calls { get; private set; }
@@ -171,16 +184,62 @@ namespace UltimateCollections.Core
         // TMDb id of a keyword or person by exact name (a number is used as the id, no request). Several people with
         // the same name: TMDb's first (most popular) one. No exact match is an error that lists the closest names,
         // rather than guessing and filling the collection with the wrong titles.
+        // Found ids are kept for the run: an actor with 'tv yes' is looked up for the movie and the TV part.
         async Task<long> SearchIdAsync(string what, string text, CancellationToken ct)
         {
             if (long.TryParse(text, out var id))
+                return id;
+            var key = what + ":" + text.ToLowerInvariant();
+            if (_ids.TryGetValue(key, out id))
                 return id;
             var res = (await GetAsync<TmdbPage>("/3/search/" + what, Q("query", text), ct).ConfigureAwait(false))?.results
                       ?? new List<TmdbNamed>();
             var exact = res.FirstOrDefault(r => string.Equals(r.name, text, StringComparison.OrdinalIgnoreCase));
             if (exact == null)
                 throw new InvalidOperationException($"TMDb {what} '{text}' not found (close: {string.Join(", ", res.Take(5).Select(r => r.name))})");
-            return exact.id;
+            return _ids[key] = exact.id;
+        }
+
+        // Talk shows, news and reality TV (TMDb TV genres 10767, 10763, 10764) and roles played as oneself are
+        // appearances, not acting; an actor collection should not pick up every chat show they promoted a film on.
+        static readonly HashSet<long> NotActingGenres = new HashSet<long> { 10763, 10764, 10767 };
+        static readonly System.Text.RegularExpressions.Regex Self =
+            new System.Text.RegularExpressions.Regex(@"^\s*(self|himself|herself|themselves|themself)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Shows ANY of the actors acted in, from each person's TV credits (TMDb's TV discover has no cast filter, so
+        // this is the only way to get them). The filters discover would have applied are applied here instead, from
+        // the credit itself: first air year, vote average, vote count, excluded genres (TV genre names; movie-only
+        // names are skipped, as in discover). One request per actor.
+        public async Task<HashSet<long>> PersonTvAsync(IReadOnlyList<string> actors, IReadOnlyList<string> exclGenres, string[] years,
+            string minRating, string minVotes, CancellationToken ct)
+        {
+            var excl = new HashSet<long>(exclGenres.Count > 0 ? await GenreIdsAsync(exclGenres, "tv", ct).ConfigureAwait(false) : new List<long>());
+            excl.UnionWith(NotActingGenres);
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            var rating = string.IsNullOrEmpty(minRating) ? (double?)null : double.Parse(minRating, inv);
+            var votes = string.IsNullOrEmpty(minVotes) ? (int?)null : int.Parse(minVotes, inv);
+            var result = new HashSet<long>();
+            foreach (var a in actors)
+            {
+                var pid = await PersonIdAsync(a, ct).ConfigureAwait(false);
+                var credits = (await GetAsync<TmdbTvCredits>($"/3/person/{pid}/tv_credits", Q(), ct).ConfigureAwait(false))?.cast
+                              ?? new List<TmdbTvCredit>();
+                foreach (var c in credits)
+                {
+                    if (Self.IsMatch(c.character ?? "") || (c.genre_ids ?? new List<long>()).Any(excl.Contains))
+                        continue;
+                    if (years != null)
+                    {
+                        var y = (c.first_air_date ?? "").Length >= 4 && int.TryParse(c.first_air_date.Substring(0, 4), out var fy) ? fy : (int?)null;
+                        if (!y.HasValue || y < int.Parse(years[0]) || y > int.Parse(years[1]))
+                            continue;
+                    }
+                    if ((rating.HasValue && c.vote_average < rating) || (votes.HasValue && c.vote_count < votes))
+                        continue;
+                    result.Add(c.id);
+                }
+            }
+            return result;
         }
 
         // TMDb genre ids for "movie" or "tv". TV uses other genres (no Horror, 'Sci-Fi & Fantasy', ...): names that do
@@ -331,7 +390,8 @@ namespace UltimateCollections.Core
         // Downloads all online sources of one collection and merges them (several sources = ANY). This is the
         // 'download' that ListCache calls when a saved list is missing or due. The title source is not here: it
         // needs no download and is matched against the library every night.
-        // TMDb keyword, actor and year settings go into one discover query, per kind (movie, and tv with 'tv yes').
+        // TMDb keyword, actor and year settings go into one discover query, per kind (movie, and tv with 'tv yes'),
+        // except the TV part of an actor collection, which comes from the actors' TV credits (see ActorTvAsync).
         // MDBList shows are skipped unless 'tv yes'. Only the last release_years line counts.
         public static async Task<SourceList> FetchAsync(CollectionDefinition col, TmdbClient tmdb, MdbListClient mdb, int maxPages,
             CancellationToken ct)
@@ -339,8 +399,6 @@ namespace UltimateCollections.Core
             var r = new SourceList();
             var tv = col.WantsTv;
             var actors = col.GetList("tmdb_actor");
-            if (actors.Count > 0 && tv)
-                throw new ConfigException("tmdb_actor works for movies only (TMDb's TV search has no cast filter); remove 'tv yes'");
             if (col.GetList("tmdb_keyword").Count > 0 || actors.Count > 0 || col.GetList("release_years").Count > 0)
             {
                 string[] years = null;
@@ -352,8 +410,10 @@ namespace UltimateCollections.Core
                 }
                 foreach (var kind in tv ? new[] { "movie", "tv" } : new[] { "movie" })
                 {
-                    var ids = await tmdb.DiscoverAsync(kind, col.GetList("tmdb_keyword"), actors, col.GetList("exclude_genre"),
-                        col.GetList("exclude_keyword"), maxPages, years, col.Get("min_rating"), col.Get("min_votes"), ct).ConfigureAwait(false);
+                    var ids = kind == "tv" && actors.Count > 0
+                        ? await ActorTvAsync(col, tmdb, actors, maxPages, years, ct).ConfigureAwait(false)
+                        : await tmdb.DiscoverAsync(kind, col.GetList("tmdb_keyword"), actors, col.GetList("exclude_genre"),
+                            col.GetList("exclude_keyword"), maxPages, years, col.Get("min_rating"), col.Get("min_votes"), ct).ConfigureAwait(false);
                     (kind == "movie" ? r.Tmdb : r.TvTmdb).UnionWith(ids);
                     r.Listed += ids.Count;
                 }
@@ -373,6 +433,26 @@ namespace UltimateCollections.Core
                 }
             }
             return r;
+        }
+
+        // The TV part of a tmdb_actor collection. TMDb's TV discover cannot filter by cast, so the shows come from the
+        // actors' TV credits (filtered by years, ratings and genres there), and the rest of the collection's TMDb
+        // settings narrow them the way they would in one discover query:
+        //   tmdb_keyword     AND: only shows also found by a TV discover for the keywords (with all filters);
+        //   exclude_keyword  NOT: shows found by a TV discover for the excluded keywords are taken out.
+        static async Task<HashSet<long>> ActorTvAsync(CollectionDefinition col, TmdbClient tmdb, IReadOnlyList<string> actors, int maxPages,
+            string[] years, CancellationToken ct)
+        {
+            var none = Array.Empty<string>();
+            var ids = await tmdb.PersonTvAsync(actors, col.GetList("exclude_genre"), years, col.Get("min_rating"), col.Get("min_votes"), ct)
+                .ConfigureAwait(false);
+            if (col.GetList("tmdb_keyword").Count > 0)
+                ids.IntersectWith(await tmdb.DiscoverAsync("tv", col.GetList("tmdb_keyword"), none, col.GetList("exclude_genre"),
+                    col.GetList("exclude_keyword"), maxPages, years, col.Get("min_rating"), col.Get("min_votes"), ct).ConfigureAwait(false));
+            else if (col.GetList("exclude_keyword").Count > 0)
+                ids.ExceptWith(await tmdb.DiscoverAsync("tv", col.GetList("exclude_keyword"), none, none, none, maxPages, null, null, null, ct)
+                    .ConfigureAwait(false));
+            return ids;
         }
     }
 }

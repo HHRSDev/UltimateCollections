@@ -5,8 +5,8 @@ by `Convert-MdToHtm.ps1` (run it after editing any `.md`). `index.htm` lists eve
 
 | Document | What it is |
 |---|---|
-| [Configuration Guide](Configuration-Guide.md) | Everything you can write in the Collections settings: the file format, simple sources, boolean `match` expressions, every selector, a cookbook, conversions, testing and error messages. Start here to write collections. |
-| [Boolean Match Expressions](Boolean-Match.md) | The write-up of the change that added `match` and the Emby metadata selectors: design, files changed, backwards compatibility, testing, known limits. |
+| [Configuration Guide](Configuration-Guide.md) | Everything you can write in the Collections settings: the file format, simple sources, boolean `match` expressions, every selector, actors with their TV shows, a cookbook, conversions, testing and error messages. Start here to write collections. |
+| [Boolean Match Expressions](Boolean-Match.md) | The write-up of the change that added `match` and the Emby metadata selectors: design, files changed, backwards compatibility, testing, known limits. Its addendum covers `tmdb_actor` with `tv yes` (an actor's TV shows from their TMDb TV credits). |
 
 The main [README](../README.md) at the repository root covers installation, the settings page, posters, the nightly
 sync and troubleshooting.
