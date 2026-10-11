@@ -24,6 +24,11 @@ namespace UltimateCollections.Core
         public string TmdbId { get; set; }
         public string ImdbId { get; set; }
         public string[] Genres { get; set; } = Array.Empty<string>();
+        // Emby metadata for the 'match' selectors (tag:, studio:, rated:, critic:).
+        public string[] Tags { get; set; } = Array.Empty<string>();
+        public string[] Studios { get; set; } = Array.Empty<string>();
+        public string OfficialRating { get; set; }
+        public float? CriticRating { get; set; }
         public bool IsSeries { get; set; }
         // Emby's community rating; the poster uses it to pick the 9 best-rated members.
         public float? Rating { get; set; }
@@ -47,6 +52,9 @@ namespace UltimateCollections.Core
         List<LibraryItem> GetMemberItems(long collectionId);
         bool CollectionExists(long id);
         HashSet<long> GetMembers(long collectionId);
+        // Movies and series with this person (exact name, as in Emby) in one of these roles (Emby person types,
+        // null = any role). For the actor:, director:, ... selectors.
+        HashSet<long> GetItemsWithPerson(string name, string[] roles);
         Task<long> CreateCollectionAsync(string name, long[] itemIds);
         Task AddAsync(long collectionId, long[] itemIds);
         void Remove(long collectionId, long[] itemIds);
@@ -103,6 +111,9 @@ namespace UltimateCollections.Core
         readonly ListCache _cache;
         readonly Func<CollectionDefinition, int, Task<SourceList>> _download;
         readonly ISyncLog _log;
+
+        // Saved lists of the online selectors in 'match' expressions (lists/match/). Only needed when one is used.
+        public ListCache MatchCache { get; set; }
 
         // Posters and backdrops; null means no artwork at all.
         public ArtworkSync Artwork { get; set; }
@@ -175,7 +186,10 @@ namespace UltimateCollections.Core
             // Clean-up only on a full run: with "Only these collections" the others merely look missing.
             if (o.Only.Count == 0)
             {
-                _cache.Prune(cfg.Collections.Select(c => c.Name));
+                // A collection converted to 'match' keeps its name but no longer uses its old saved list.
+                _cache.Prune(cfg.Collections.Where(c => c.Match == null).Select(c => c.Name));
+                MatchCache?.Prune(cfg.Collections.Where(c => c.Match != null)
+                    .SelectMany(c => c.Match.Atoms().Where(a => a.IsOnline).Select(a => a.ListDefinition(c, maxPagesDefault).Name)));
                 var names = new HashSet<string>(cfg.Collections.Select(c => c.Name));
                 foreach (var name in State.Keys.Where(n => !names.Contains(n)).ToList())
                 {
@@ -244,7 +258,9 @@ namespace UltimateCollections.Core
             var want = new HashSet<long>();
             var listed = 0;
             var src = "library titles";
-            if (c.NeedsDownload)
+            if (c.Match != null)
+                (want, listed, src) = await MatchAsync(c, o, lib, shows, maxPagesDefault, refreshDays, ct).ConfigureAwait(false);
+            else if (c.NeedsDownload)
             {
                 var maxPages = c.Get("max_pages") != null ? int.Parse(c.Get("max_pages")) : maxPagesDefault;
                 var (r, how) = await _cache.GetAsync(c, () => _download(c, maxPages), refreshDays, o.Refresh, ct).ConfigureAwait(false);
@@ -254,7 +270,7 @@ namespace UltimateCollections.Core
                 if (c.WantsTv)
                     want.UnionWith(Matcher.ByIds(c, r.TvTmdb, r.TvImdb, shows));
             }
-            if (c.GetList("title").Count > 0)
+            if (c.Match == null && c.GetList("title").Count > 0)
             {
                 var byTitle = Matcher.ByTitle(c, c.WantsTv ? lib.Concat(shows) : lib);
                 want.UnionWith(byTitle);
@@ -304,6 +320,56 @@ namespace UltimateCollections.Core
                 res.Updated++;
             _log.Info($"[{name}] {tag}{want.Count} items (+{add.Length} -{rem.Length}, list has {listed}, {src})");
             await ArtworkAsync(cfg, c, cid, want, lib, shows, o.DryRun, ct).ConfigureAwait(false);
+        }
+
+        // A 'match' collection: every selector becomes a set of library items, then the expression combines the sets.
+        // Online selectors go through MatchCache like any other list. An online selector that returns nothing is an
+        // error (more likely broken than empty), which leaves the collection as it is; a library selector that
+        // matches nothing is only a warning, because a tag that nobody has yet is a real answer.
+        // 'listed' adds up what the selectors found, for the log and for the "sources returned nothing" check.
+        async Task<(HashSet<long> want, int listed, string src)> MatchAsync(CollectionDefinition c, SyncOptions o, List<LibraryItem> lib,
+            List<LibraryItem> shows, int maxPagesDefault, double refreshDays, CancellationToken ct)
+        {
+            var scope = c.WantsTv ? lib.Concat(shows).ToList() : lib;
+            var universe = new HashSet<long>(scope.Select(i => i.Id));
+            var sets = new Dictionary<string, HashSet<long>>();
+            var listed = 0;
+            var downloads = new List<string>();
+            foreach (var a in c.Match.Atoms())
+            {
+                if (sets.ContainsKey(a.Text))
+                    continue;
+                HashSet<long> hits;
+                if (a.IsOnline)
+                {
+                    if (MatchCache == null)
+                        throw new InvalidOperationException("no list cache for match selectors");
+                    var def = a.ListDefinition(c, maxPagesDefault);
+                    var pages = def.Get("max_pages") != null ? int.Parse(def.Get("max_pages")) : maxPagesDefault;
+                    var (r, how) = await MatchCache.GetAsync(def, () => _download(def, pages), refreshDays, o.Refresh, ct).ConfigureAwait(false);
+                    if (r.Listed == 0)
+                        throw new InvalidOperationException($"{a.Text} returned nothing");
+                    hits = Matcher.ByIds(def, r.Tmdb, r.Imdb, lib);
+                    if (c.WantsTv)
+                        hits.UnionWith(Matcher.ByIds(def, r.TvTmdb, r.TvImdb, shows));
+                    listed += r.Listed;
+                    downloads.Add($"{a.Text} {how}");
+                }
+                else
+                {
+                    hits = a.IsPerson ? _emby.GetItemsWithPerson(a.Value, a.PersonRoles) : new HashSet<long>(scope.Where(a.Test).Select(i => i.Id));
+                    hits.IntersectWith(universe);
+                    listed += hits.Count;
+                }
+                if (hits.Count == 0)
+                    _log.Warn($"[{c.Name}] {a.Text} matches nothing in the library (check the spelling)");
+                else if (o.ShowTitles)
+                    _log.Info($"[{c.Name}] {a.Text}: {hits.Count} in the library");
+                sets[a.Text] = hits;
+            }
+            var want = c.Match.Eval(a => sets[a.Text], universe);
+            var src = "match" + (downloads.Count > 0 ? ": " + string.Join("; ", downloads) : ", library only");
+            return (want, listed, src);
         }
 
         // A failed poster or backdrop is only a warning: by this point the collection itself is already in order.

@@ -1,0 +1,12 @@
+# Ultimate Collections: Documentation
+
+The project's documents. Each `.md` file is the source; the `.htm` beside it is generated for reading in a browser
+by `Convert-MdToHtm.ps1` (run it after editing any `.md`). `index.htm` lists every page and resource in this folder.
+
+| Document | What it is |
+|---|---|
+| [Configuration Guide](Configuration-Guide.md) | Everything you can write in the Collections settings: the file format, simple sources, boolean `match` expressions, every selector, a cookbook, conversions, testing and error messages. Start here to write collections. |
+| [Boolean Match Expressions](Boolean-Match.md) | The write-up of the change that added `match` and the Emby metadata selectors: design, files changed, backwards compatibility, testing, known limits. |
+
+The main [README](../README.md) at the repository root covers installation, the settings page, posters, the nightly
+sync and troubleshooting.

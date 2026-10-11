@@ -135,6 +135,7 @@ namespace UltimateCollections.Emby
                     }, state, log)
                 {
                     Artwork = artwork,
+                    MatchCache = new ListCache(Path.Combine(dataDir, "lists", "match"), json, log),
                 };
                 // "Ignore seasons" is for previewing seasonal collections, so it only counts in a dry run.
                 var options = new SyncOptions

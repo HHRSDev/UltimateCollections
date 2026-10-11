@@ -40,8 +40,9 @@ updated every night.
 
 You write a short description of each collection, and the plugin does the rest every night:
 
-- finds the matching titles using **TMDb keywords, actors, release years and ratings**, **public MDBList lists**, or
-  simply **words in the title**;
+- finds the matching titles using **TMDb keywords, actors, release years and ratings**, **public MDBList lists**,
+  simply **words in the title**, or **Emby's own metadata** (tags, genres, studios, actors, directors, years,
+  ratings), combined with **AND / OR / NOT** when you need to;
 - puts the ones **you actually own** into an Emby collection, and keeps it up to date as your library grows;
 - creates **seasonal collections** only during their season (Halloween in October, Christmas in December) and removes
   them afterwards;
@@ -58,6 +59,7 @@ You write a short description of each collection, and the plugin does the rest e
 3. [First run](#first-run)
 4. [The settings page](#the-settings-page)
 5. [Writing collections: the config language](#writing-collections-the-config-language)
+   - [Combining selectors with AND, OR and NOT: `match`](#combining-selectors-with-and-or-and-not-match)
 6. [Recipes: examples explained](#recipes-examples-explained)
 7. [Posters and backdrops](#posters-and-backdrops)
 8. [How the nightly sync works](#how-the-nightly-sync-works)
@@ -68,6 +70,13 @@ You write a short description of each collection, and the plugin does the rest e
 13. [Support](#support)
 14. [Disclaimer](#disclaimer)
 15. [Credits](#credits)
+
+More documentation in [`docs/`](docs/README.md):
+
+- **[Configuration Guide](docs/Configuration-Guide.md)**: the complete guide to writing collections, including
+  boolean `match` expressions, every selector, a cookbook and the error messages.
+- **[Boolean Match Expressions](docs/Boolean-Match.md)**: how `match` and the Emby metadata selectors were built,
+  tested and kept backwards compatible.
 
 ---
 
@@ -181,6 +190,9 @@ Below the form is the **Danger zone** with *Delete All Collections* (see [below]
 
 ## Writing collections: the config language
 
+This section is the summary. The [Configuration Guide](docs/Configuration-Guide.md) covers the same ground in more
+depth, with a cookbook of `match` recipes.
+
 The text box holds plain text with **sections** and **`key value`** lines.
 
 ```ini
@@ -223,6 +235,7 @@ Rules:
 | `release_years` | `release_years 1980 1989` | All TMDb movies released in these years (both included). Combine with `min_rating` / `min_votes`, or you get thousands. |
 | `mdblist` | `mdblist k0meta/christmas-extravaganza` | A **public** list from [mdblist.com](https://mdblist.com). Use the `user/list` part of the list's address. Free, no account needed. |
 | `title` | `title Star Trek` | Titles **in your library** whose name contains this text (not case sensitive). Needs no internet at all. |
+| `match` | `match tag:Christmas AND NOT genre:Horror` | A boolean expression over selectors, including Emby's own tags, genres, people and more. See [below](#combining-selectors-with-and-or-and-not-match). |
 
 **Finding keywords:** search for a movie on themoviedb.org, scroll down to **Keywords** on its page, and click one:
 the keyword page shows its name and, in the address, its id (`themoviedb.org/keyword/4379-time-travel/movie`
@@ -260,6 +273,77 @@ This is the one rule worth reading twice:
   80's*.
 - **`mdblist` and `title` are added on top (OR).** Their titles join whatever the TMDb part found.
 - Only the last `release_years` line counts.
+
+When those fixed rules are not what you want (an actor **and** a genre, a tag **or** a keyword, anything **but**
+horror), use `match` instead.
+
+### Combining selectors with AND, OR and NOT: `match`
+
+`match` takes a small expression and gives you full control over how sources combine:
+
+```ini
+[collection Hanks at War]
+match  actor:"Tom Hanks" AND (genre:War OR tmdb_keyword:"world war ii")
+```
+
+Each **selector** is `field:value`. Every selector finds a set of titles in your library; `AND` keeps the titles in
+both sets, `OR` takes either, `NOT` takes everything in the library *except*. Parentheses group as you would expect.
+
+**Selectors from Emby's own metadata** (no internet, no API requests; they read what Emby shows on each title's page):
+
+| Selector | Example | Matches |
+|---|---|---|
+| `tag:` | `tag:"Family Night"` | Titles with this Emby tag. |
+| `genre:` | `genre:Western` | Titles with this Emby genre. |
+| `studio:` | `studio:Pixar` | Titles from this studio. |
+| `rated:` | `rated:PG-13` | Titles with this parental rating (as Emby shows it: `PG-13`, `TV-MA`, ...). |
+| `title:` | `title:"Star Trek"` | Titles whose name contains this text. |
+| `actor:` | `actor:"Tom Hanks"` | Titles with this person in the cast (guest stars included, for shows). |
+| `director:` / `writer:` / `producer:` | `director:"Christopher Nolan"` | Titles with this person in that role. |
+| `person:` | `person:"Clint Eastwood"` | This person in any role. |
+| `year:` | `year:1985`, `year:1980..1989`, `year:>=2000` | Production year: exactly, a range (both ends included), or `>=` `<=` `>` `<`. |
+| `rating:` | `rating:7.5`, `rating:<5` | Emby's community rating (0-10). A bare number means *at least*. |
+| `critic:` | `critic:80` | Emby's critic rating (0-100). A bare number means *at least*. |
+| `type:` | `type:series` | `movie` or `series` (only useful together with `tv yes`). |
+
+Text values are not case sensitive, but otherwise must match **exactly** what Emby shows (people too: use the name
+on the person's Emby page).
+
+**Online selectors** (downloaded and saved like other lists, see [How the nightly sync works](#how-the-nightly-sync-works)):
+
+| Selector | Example | Matches |
+|---|---|---|
+| `tmdb_keyword:` | `tmdb_keyword:"time travel"` | Titles TMDb has tagged with this keyword. |
+| `tmdb_actor:` | `tmdb_actor:"Tom Hanks"` | Movies with this actor according to TMDb (movies only). |
+| `mdblist:` | `mdblist:k0meta/christmas-extravaganza` | A public MDBList list. |
+
+Rules:
+
+- **Values with spaces** (or parentheses) go in double quotes: `tmdb_keyword:"time travel"`. Without quotes the
+  plugin stops with an error that says so.
+- `AND`, `OR` and `NOT` may be written in any case. `AND` binds tighter than `OR`, so `a OR b AND c` means
+  `a OR (b AND c)`. When in doubt, use parentheses.
+- **Several `match` lines mean ANY of them**, like every other repeated key. Handy for long expressions:
+
+  ```ini
+  match  tag:Christmas AND NOT genre:Horror
+  match  tmdb_keyword:christmas AND year:1980..1989
+  ```
+
+- `match` **replaces** the other source keys: a collection with `match` cannot also have `tmdb_keyword`,
+  `tmdb_actor`, `mdblist`, `release_years`, `title`, `exclude_genre` or `exclude_keyword` lines. Write them inside the
+  expression instead (`AND NOT genre:Horror`, `OR title:"Star Trek"`, `year:1980..1989`).
+- `tv`, `season`, `min_items`, `max_pages` and the poster settings work as usual. `min_rating` and `min_votes` are
+  passed to TMDb for the `tmdb_keyword:` and `tmdb_actor:` selectors, exactly as before.
+- Each online selector is downloaded **on its own** and saved under `lists/match/`. Two collections that use the
+  same selector (with the same `tv`, `max_pages`, `min_rating` and `min_votes`) share one download.
+- Prefer Emby selectors where they do the job: `year:1980..1989` costs nothing, while a TMDb download of a decade
+  is thousands of titles.
+- A typo is caught when the settings are read (an unknown selector, a missing quote or bracket), and the error
+  names the line. A selector that matches **nothing** in your library (say, a misspelt tag) is a warning in the
+  log; if **every** selector of a collection matches nothing, the collection is left unchanged, as with other
+  sources. An online selector that returns nothing at all is treated as broken, and the collection is left
+  unchanged.
 
 ### Other settings
 
@@ -452,6 +536,47 @@ min_items     8
 `min_items 8` means the collection only appears once you own at least 8 matching movies, so you are not left with a
 collection of two.
 
+### 14. Boolean collections with `match`
+
+```ini
+[collection Hanks at War]
+match  actor:"Tom Hanks" AND (genre:War OR tmdb_keyword:"world war ii")
+```
+
+Tom Hanks titles that are either War in Emby or tagged *world war ii* on TMDb. The actor comes from Emby's own
+cast lists, so only the keyword costs a download.
+
+```ini
+[collection Family Christmas]
+match   tag:Christmas AND NOT (genre:Horror OR rated:R)
+season  12-01 12-31
+```
+
+Everything you have tagged *Christmas* in Emby, without the horror films and the R-rated ones. Tags are your own,
+so this is the way to build a collection by hand-picking titles: tag them in Emby, and the collection follows.
+
+```ini
+[collection Nolan and Villeneuve]
+match  director:"Christopher Nolan" OR director:"Denis Villeneuve"
+```
+
+Two directors in one collection, no internet needed.
+
+```ini
+[collection Pixar Classics]
+match  studio:Pixar AND year:<=2010 AND rating:7.5
+```
+
+Older Pixar films rated 7.5 or better in Emby.
+
+```ini
+[collection Star Trek, the good ones]
+match  title:"Star Trek" AND rating:7
+tv     yes
+```
+
+Every Star Trek movie and series with a community rating of 7 or more.
+
 ---
 
 ## Posters and backdrops
@@ -591,6 +716,7 @@ The plugin keeps its files in its **data folder**, inside Emby's `plugins` folde
 |---|---|
 | `logs/YYYY-MM-DD.log` | One log file per day, kept for 30 days. Everything also goes to Emby's server log (search for "Ultimate Collections"). |
 | `lists/` | The saved downloads, one file per collection. Safe to delete; they are downloaded again on the next run. |
+| `lists/match/` | The saved downloads of online selectors in `match` expressions, one file per selector. Safe to delete too. |
 | `state.json` | Which collections the plugin created (by Emby id). **Do not delete:** without it the plugin no longer knows which collections are its own and leaves them alone. |
 | `artwork-state.json` | What each collection's poster and backdrop were made from, so unchanged artwork is not uploaded again. |
 | `previews/` | Posters and backdrops drawn during a dry run. |
@@ -649,7 +775,12 @@ by hand to one of its collections are removed again. Make your own collection (w
 titles; the plugin never touches it.
 
 **Does it work for TV shows?** Yes, with `tv yes` in a collection: shows come from `title`, TMDb keywords and years,
-and MDBList lists that contain shows. `tmdb_actor` is movies only.
+MDBList lists that contain shows, and every Emby selector in `match`. `tmdb_actor` is movies only (in `match`,
+`tmdb_actor:` simply ignores shows; use `actor:` for Emby's cast lists, which cover shows too).
+
+**A `match` selector says it "matches nothing in the library".** The value must match what Emby shows, apart from
+upper/lower case: check the tag, genre or person's name on a title's page in Emby. Values with spaces need
+quotes.
 
 **What if I don't set any poster colours?** Every collection still gets a poster. Without `poster_accent` the plugin
 picks an accent from its own palette based on the collection's name, so the same collection always gets the same

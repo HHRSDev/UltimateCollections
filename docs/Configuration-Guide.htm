@@ -1,0 +1,463 @@
+﻿<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Configuration-Guide</title><style>
+ body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;max-width:920px;margin:2rem auto;padding:0 1.2rem;color:#222}
+ h1,h2,h3,h4{line-height:1.25;margin-top:1.6em}
+ h1{border-bottom:3px solid #be2227;padding-bottom:.2em}
+ h2{border-bottom:1px solid #dcdcdc;padding-bottom:.2em}
+ code{background:#f0eee9;padding:.1em .35em;border-radius:3px;font-family:Consolas,Monaco,monospace;font-size:.92em}
+ pre{background:#1e1e1e;color:#e6e6e6;padding:1rem;border-radius:6px;overflow:auto}
+ pre code{background:none;color:inherit;padding:0;font-size:.88em}
+ table{border-collapse:collapse;width:100%;margin:1em 0}
+ th,td{border:1px solid #dcdcdc;padding:.5em .7em;text-align:left;vertical-align:top}
+ th{background:#f0eee9}
+ blockquote{border-left:4px solid #be2227;margin:1em 0;padding:.3em 1em;color:#555;background:#faf9f7}
+ a{color:#0066cc}
+ hr{border:0;border-top:1px solid #dcdcdc;margin:2em 0}
+</style></head><body>
+<h1>Ultimate Collections: Configuration Guide</h1>
+<p>This guide covers everything you can write in the <strong>Collections</strong> box on the plugin's settings page (Dashboard &gt;</p>
+<p>Plugins &gt; Ultimate Collections). It includes the boolean <code>match</code> key, which combines TMDb, MDBList and Emby's own</p>
+<p>metadata (tags, genres, studios, people, years, ratings) with AND, OR and NOT.</p>
+<p>If you are new to the plugin, read <a href="../README.md#installation">Installation and first run</a> in the main README first,</p>
+<p>then come back here.</p>
+<hr />
+<h2>Contents</h2>
+<ol>
+<li><a href="#1-the-shape-of-the-settings-text">The shape of the settings text</a></li>
+<li><a href="#2-the-global-section">The global section</a></li>
+<li><a href="#3-two-ways-to-fill-a-collection">Two ways to fill a collection</a></li>
+<li><a href="#4-simple-sources">Simple sources</a></li>
+<li><a href="#5-boolean-collections-the-match-key">Boolean collections: the match key</a></li>
+<li><a href="#6-selector-reference">Selector reference</a></li>
+<li><a href="#7-settings-that-work-with-both-styles">Settings that work with both styles</a></li>
+<li><a href="#8-poster-and-backdrop-settings">Poster and backdrop settings</a></li>
+<li><a href="#9-cookbook">Cookbook</a></li>
+<li><a href="#10-converting-a-simple-collection-to-match">Converting a simple collection to match</a></li>
+<li><a href="#11-downloads-saved-lists-and-api-cost">Downloads, saved lists and API cost</a></li>
+<li><a href="#12-testing-a-collection-safely">Testing a collection safely</a></li>
+<li><a href="#13-errors-and-warnings-explained">Errors and warnings explained</a></li>
+<li><a href="#14-quick-reference-card">Quick reference card</a></li>
+</ol>
+<hr />
+<h2>1. The shape of the settings text</h2>
+<p>The settings text is plain text made of <strong>sections</strong>, and each section holds <strong><code>key value</code> lines</strong>.</p>
+<pre><code>
+# A line starting with # is a comment.
+[global]                          # settings for every collection
+min_items  2
+
+[collection Time Travel]          # one section per collection; the name is what Emby shows
+tmdb_keyword  time travel         # key, at least one space, value
+</code></pre>
+<p>The rules:</p>
+<ul>
+<li>A section starts with <code>[global]</code> or <code>[collection Name Of The Collection]</code>. The name may contain spaces and punctuation (<code>[collection Valentine's Day]</code> is fine), and <strong>every collection name must be unique</strong>.</li>
+<li>Every other line is <code>key value</code>. Keys are lower case. Any number of spaces may separate key and value, so you can line them up.</li>
+<li><code>#</code> starts a comment, either at the start of a line or <strong>after a space</strong> at the end of one. That is why colours are written <code>r,g,b</code> and never <code>#rrggbb</code>, and why a value can never contain <code> #</code>.</li>
+<li>A key repeated within a collection means <strong>ANY of them</strong>. Two <code>tmdb_keyword</code> lines mean either keyword, and two <code>match</code> lines mean either expression.</li>
+<li>Anything the plugin cannot make sense of stops the run with an error naming the line or the collection, and <strong>nothing is changed</strong>. The plugin would rather do nothing than fill a collection with the wrong titles.</li>
+</ul>
+<hr />
+<h2>2. The global section</h2>
+<p><code>[global]</code> is optional. Its settings apply to every collection, and some can be overridden per collection.</p>
+<table>
+<tr><th>Key</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>min_items</code></td><td><code>2</code></td><td>A collection with fewer matching titles is not created, and is removed if it shrinks below this.</td></tr>
+<tr><td><code>max_pages</code></td><td><code>100</code></td><td>TMDb result pages (20 titles each) read per TMDb source. 100 pages is the top 2,000 titles.</td></tr>
+<tr><td><code>list_refresh_days</code></td><td><code>7</code></td><td>Downloaded lists are reused for this many days before being downloaded again.</td></tr>
+<tr><td><code>posters</code></td><td><code>yes</code></td><td><code>posters no</code> turns off generated posters and backdrops for every collection.</td></tr>
+</table>
+<pre><code>
+[global]
+min_items          3
+max_pages          50
+list_refresh_days  14
+</code></pre>
+<hr />
+<h2>3. Two ways to fill a collection</h2>
+<p>Every collection needs at least one <strong>source</strong>. There are two styles, and you choose per collection.</p>
+<p><strong>Simple sources</strong> are one key per line (<code>tmdb_keyword</code>, <code>tmdb_actor</code>, <code>release_years</code>, <code>mdblist</code>, <code>title</code>). They</p>
+<p>combine by fixed rules (section 4). They are quick to write and cover most themes.</p>
+<p><strong><code>match</code> expressions</strong> are one or more <code>match</code> lines holding a boolean expression of selectors. You decide exactly</p>
+<p>how things combine, and you can use Emby's own metadata (tags, genres, studios, people, years, ratings, parental</p>
+<p>rating) as well as TMDb and MDBList.</p>
+<p>Use simple sources when "everything with this keyword" or "everything on this list" is what you want. Use <code>match</code></p>
+<p>when you need <strong>AND between different kinds of things</strong> (an actor and a genre), <strong>OR across kinds</strong> (a TMDb keyword</p>
+<p>or an Emby tag), <strong>NOT</strong> (anything except horror), or <strong>anything from Emby's own metadata</strong>.</p>
+<p>A collection uses <strong>one style or the other</strong>, never both. A collection with a <code>match</code> line cannot also have</p>
+<p><code>tmdb_keyword</code>, <code>tmdb_actor</code>, <code>mdblist</code>, <code>release_years</code>, <code>title</code>, <code>exclude_genre</code> or <code>exclude_keyword</code> lines. Every</p>
+<p>one of those has a selector that means the same thing inside the expression (see</p>
+<p><a href="#10-converting-a-simple-collection-to-match">section 10</a>).</p>
+<hr />
+<h2>4. Simple sources</h2>
+<table>
+<tr><th>Key</th><th>Example</th><th>Meaning</th></tr>
+<tr><td><code>tmdb_keyword</code></td><td><code>tmdb_keyword time travel</code></td><td>Movies TMDb has tagged with this keyword (exact name, or the numeric id).</td></tr>
+<tr><td><code>tmdb_actor</code></td><td><code>tmdb_actor Tom Hanks</code></td><td>Movies with this actor in the cast, according to TMDb. Movies only.</td></tr>
+<tr><td><code>release_years</code></td><td><code>release_years 1980 1989</code></td><td>All TMDb movies released in these years. Use with <code>min_rating</code> / <code>min_votes</code>.</td></tr>
+<tr><td><code>mdblist</code></td><td><code>mdblist k0meta/christmas-extravaganza</code></td><td>A public list from mdblist.com (the <code>user/list</code> part of its address).</td></tr>
+<tr><td><code>title</code></td><td><code>title Star Trek</code></td><td>Library titles whose name contains this text. No internet needed.</td></tr>
+</table>
+<p>Filters for simple sources:</p>
+<table>
+<tr><th>Key</th><th>Example</th><th>Meaning</th></tr>
+<tr><td><code>min_rating</code></td><td><code>min_rating 7.0</code></td><td>TMDb average rating at least this (0-10). TMDb sources only.</td></tr>
+<tr><td><code>min_votes</code></td><td><code>min_votes 2000</code></td><td>At least this many TMDb votes, a good way to keep only well-known titles. TMDb sources only.</td></tr>
+<tr><td><code>exclude_genre</code></td><td><code>exclude_genre Horror</code></td><td>Leave out this genre, checked by TMDb and again against Emby's genres. Repeatable.</td></tr>
+<tr><td><code>exclude_keyword</code></td><td><code>exclude_keyword christmas</code></td><td>Leave out titles with this TMDb keyword. Repeatable. TMDb sources only.</td></tr>
+</table>
+<p>How simple sources combine:</p>
+<ul>
+<li><strong>The same key several times means ANY.</strong> Two <code>tmdb_keyword</code> lines give titles with either keyword.</li>
+<li><strong>Different TMDb keys narrow each other (AND).</strong> <code>tmdb_keyword</code>, <code>tmdb_actor</code>, <code>release_years</code>, <code>min_rating</code> and <code>min_votes</code> go to TMDb as one search. <code>tmdb_keyword christmas</code> plus <code>release_years 1980 1989</code> means Christmas movies from the 80's.</li>
+<li><strong><code>mdblist</code> and <code>title</code> add on top (OR).</strong> Their titles join whatever the TMDb part found.</li>
+<li>Only the last <code>release_years</code> line counts.</li>
+</ul>
+<p>These rules are fixed. If they are not what you want, use <code>match</code>.</p>
+<hr />
+<h2>5. Boolean collections: the match key</h2>
+<h3>5.1 The idea</h3>
+<pre><code>
+[collection Hanks at War]
+match  actor:"Tom Hanks" AND (genre:War OR tmdb_keyword:"world war ii")
+</code></pre>
+<p>A <code>match</code> expression is built from <strong>selectors</strong> joined by <strong>operators</strong>.</p>
+<ul>
+<li>A <strong>selector</strong> is <code>field:value</code>, for example <code>tag:Christmas</code>, <code>actor:"Tom Hanks"</code> or <code>year:1980..1989</code>. Each selector finds a <strong>set of titles in your library</strong>.</li>
+<li><strong><code>AND</code></strong> keeps the titles that are in both sets.</li>
+<li><strong><code>OR</code></strong> takes the titles that are in either set.</li>
+<li><strong><code>NOT</code></strong> takes every title in the library <strong>except</strong> those in the set.</li>
+<li><strong>Parentheses</strong> <code>( )</code> group parts of the expression.</li>
+</ul>
+<p>Because every selector becomes a set of your own titles, any selector can be combined with any other: a TMDb keyword</p>
+<p>with an Emby tag, an MDBList list with a director, a year range with a parental rating.</p>
+<h3>5.2 Writing values</h3>
+<ul>
+<li>A value <strong>without spaces</strong> is written as is: <code>genre:Western</code>, <code>rated:PG-13</code>, <code>mdblist:k0meta/christmas-extravaganza</code>.</li>
+<li>A value <strong>with spaces or parentheses</strong> goes in <strong>double quotes</strong>: <code>tag:"Family Night"</code>, <code>tmdb_keyword:"time travel"</code>. Forget the quotes and the plugin stops with an error saying so.</li>
+<li>There is <strong>no space</strong> between the field, the colon and the value: <code>tag:Christmas</code>, not <code>tag: Christmas</code>.</li>
+<li>Text values are <strong>not case sensitive</strong>: <code>tag:christmas</code> finds titles tagged <code>Christmas</code>.</li>
+<li>A value cannot contain a double quote, and cannot contain <code> #</code> (that starts a comment).</li>
+</ul>
+<h3>5.3 Operators and precedence</h3>
+<ul>
+<li><code>AND</code>, <code>OR</code> and <code>NOT</code> may be written in any case (<code>and</code>, <code>Or</code>, <code>NOT</code>).</li>
+<li>Two selectors next to each other with no operator between them is an error. There is no implicit AND, so you always see what you meant.</li>
+<li><strong>NOT binds tightest, then AND, then OR.</strong> So <code>tag:a OR tag:b AND tag:c</code> means <code>tag:a OR (tag:b AND tag:c)</code>, and <code>NOT genre:Horror AND tag:Christmas</code> means <code>(NOT genre:Horror) AND tag:Christmas</code>.</li>
+<li>When in doubt, add parentheses. They cost nothing and make the intent obvious.</li>
+</ul>
+<h3>5.4 Several match lines</h3>
+<p>Several <code>match</code> lines in one collection mean <strong>ANY of them</strong>, exactly as if joined with <code>OR</code>. That is the easy way to</p>
+<p>write long expressions:</p>
+<pre><code>
+[collection Christmas Plus]
+match  tag:Christmas AND NOT genre:Horror
+match  tmdb_keyword:christmas AND year:1980..1989
+match  mdblist:k0meta/christmas-extravaganza AND rating:7
+</code></pre>
+<p>That is the same as <code>(line 1) OR (line 2) OR (line 3)</code>.</p>
+<h3>5.5 What NOT means</h3>
+<p><code>NOT x</code> is <strong>every title in scope</strong> minus the titles of <code>x</code>. The scope is all your movies, plus all your series when</p>
+<p>the collection has <code>tv yes</code>. So:</p>
+<ul>
+<li><code>NOT genre:Horror</code> on its own is every non-horror movie you own (probably not what you want).</li>
+<li><code>tag:Christmas AND NOT genre:Horror</code> is the useful form: narrow first, then exclude.</li>
+</ul>
+<h3>5.6 Movies and series</h3>
+<p>Without <code>tv yes</code> a <code>match</code> collection looks at <strong>movies only</strong>. With <code>tv yes</code> it looks at movies <strong>and series</strong>, for</p>
+<p>every selector. Use <code>type:movie</code> or <code>type:series</code> inside the expression to pick one kind for part of it:</p>
+<pre><code>
+[collection Star Trek Shows and Top Movies]
+match  title:"Star Trek" AND (type:series OR rating:7)
+tv     yes
+</code></pre>
+<hr />
+<h2>6. Selector reference</h2>
+<h3>6.1 Emby metadata selectors</h3>
+<p>These read what Emby shows on each title's page. They need <strong>no internet and cost no API requests</strong>, and they are</p>
+<p>evaluated fresh on every run. Edit a tag in Emby today, and the collection follows tonight.</p>
+<table>
+<tr><th>Selector</th><th>Example</th><th>Matches</th><th>Notes</th></tr>
+<tr><td><code>tag:</code></td><td><code>tag:"Family Night"</code></td><td>Titles with this tag.</td><td>Exact tag, any case. Tags are yours to set, so this is the hand-picking selector.</td></tr>
+<tr><td><code>genre:</code></td><td><code>genre:Western</code></td><td>Titles with this genre.</td><td>Emby's genres, which come from your metadata providers.</td></tr>
+<tr><td><code>studio:</code></td><td><code>studio:Pixar</code></td><td>Titles from this studio.</td><td>As listed under Studios on the title's page.</td></tr>
+<tr><td><code>rated:</code></td><td><code>rated:PG-13</code></td><td>Titles with this parental rating.</td><td>Exactly as Emby shows it: <code>PG-13</code>, <code>R</code>, <code>TV-MA</code>, <code>TV-14</code>, ...</td></tr>
+<tr><td><code>title:</code></td><td><code>title:"Star Trek"</code></td><td>Titles whose name contains this text.</td><td>Part of the name is enough. <code>title:Alien</code> also finds Aliens.</td></tr>
+<tr><td><code>actor:</code></td><td><code>actor:"Tom Hanks"</code></td><td>Titles with this person in the cast.</td><td>Includes guest stars, so it works for series.</td></tr>
+<tr><td><code>director:</code></td><td><code>director:"Christopher Nolan"</code></td><td>Titles this person directed.</td><td></td></tr>
+<tr><td><code>writer:</code></td><td><code>writer:"Aaron Sorkin"</code></td><td>Titles this person wrote.</td><td></td></tr>
+<tr><td><code>producer:</code></td><td><code>producer:"Kathleen Kennedy"</code></td><td>Titles this person produced.</td><td>Only if your metadata lists producers.</td></tr>
+<tr><td><code>person:</code></td><td><code>person:"Clint Eastwood"</code></td><td>This person in any role.</td><td>Actor, director, writer, producer, composer, ...</td></tr>
+<tr><td><code>year:</code></td><td><code>year:1985</code></td><td>Production year.</td><td>See the number forms below. A bare number is that exact year.</td></tr>
+<tr><td><code>rating:</code></td><td><code>rating:7.5</code></td><td>Community rating, 0-10.</td><td>A bare number means <strong>at least</strong>.</td></tr>
+<tr><td><code>critic:</code></td><td><code>critic:80</code></td><td>Critic rating, 0-100.</td><td>A bare number means <strong>at least</strong>.</td></tr>
+<tr><td><code>type:</code></td><td><code>type:series</code></td><td><code>movie</code> or <code>series</code>.</td><td><code>show</code> and <code>tv</code> also mean series. Only useful with <code>tv yes</code>.</td></tr>
+</table>
+<p><strong>Number forms</strong> for <code>year:</code>, <code>rating:</code> and <code>critic:</code>:</p>
+<table>
+<tr><th>Form</th><th>Example</th><th>Means</th></tr>
+<tr><td>bare number</td><td><code>year:1985</code></td><td>That exact year. For <code>rating:</code> and <code>critic:</code>: at least this.</td></tr>
+<tr><td>range</td><td><code>year:1980..1989</code></td><td>From the first to the second, both included.</td></tr>
+<tr><td>at least</td><td><code>rating:&gt;=7</code></td><td>7 or more.</td></tr>
+<tr><td>at most</td><td><code>year:&lt;=1979</code></td><td>1979 or earlier.</td></tr>
+<tr><td>more than</td><td><code>critic:&gt;90</code></td><td>Strictly more than 90.</td></tr>
+<tr><td>less than</td><td><code>rating:&lt;5</code></td><td>Strictly less than 5.</td></tr>
+<tr><td>exactly</td><td><code>rating:=10</code></td><td>Exactly this.</td></tr>
+</table>
+<p>A title with <strong>no value</strong> for the field (no year, no rating) never matches a number selector, including under <code>&lt;</code>.</p>
+<p><strong>People names</strong> must be the name on the person's page in Emby (case does not matter). If Emby lists "Robert Downey</p>
+<p>Jr.", then <code>actor:"Robert Downey Jr"</code> without the dot finds nothing, and the log warns you.</p>
+<h3>6.2 Online selectors</h3>
+<p>These download a list, so they need the internet (and, for TMDb, your token). The download is <strong>saved and reused</strong></p>
+<p>(see <a href="#11-downloads-saved-lists-and-api-cost">section 11</a>).</p>
+<table>
+<tr><th>Selector</th><th>Example</th><th>Matches</th><th>Notes</th></tr>
+<tr><td><code>tmdb_keyword:</code></td><td><code>tmdb_keyword:"time travel"</code></td><td>Titles TMDb tagged with this keyword.</td><td>Exact keyword name or numeric id. With <code>tv yes</code> also shows.</td></tr>
+<tr><td><code>tmdb_actor:</code></td><td><code>tmdb_actor:"Tom Hanks"</code></td><td>Movies with this actor according to TMDb.</td><td>Movies only, even with <code>tv yes</code>. Name or numeric person id.</td></tr>
+<tr><td><code>mdblist:</code></td><td><code>mdblist:k0meta/christmas-extravaganza</code></td><td>Titles on this public MDBList list.</td><td>Shows only with <code>tv yes</code>.</td></tr>
+</table>
+<p><code>min_rating</code>, <code>min_votes</code> and <code>max_pages</code> in the collection are passed to TMDb for <code>tmdb_keyword:</code> and</p>
+<p><code>tmdb_actor:</code>, exactly as they are for simple sources.</p>
+<p><strong><code>actor:</code> or <code>tmdb_actor:</code>?</strong> <code>actor:</code> uses Emby's own cast lists. It is free, instant, covers series, and sees</p>
+<p>exactly what Emby sees. <code>tmdb_actor:</code> asks TMDb and costs a download. Prefer <code>actor:</code> unless your Emby metadata lacks</p>
+<p>cast information.</p>
+<p><strong><code>year:</code> or a TMDb year search?</strong> <code>year:1980..1989</code> is free and reads your library. There is no TMDb year selector</p>
+<p>in <code>match</code>, and none is needed: narrow with <code>year:</code> instead.</p>
+<hr />
+<h2>7. Settings that work with both styles</h2>
+<table>
+<tr><th>Key</th><th>Example</th><th>Meaning</th></tr>
+<tr><td><code>tv</code></td><td><code>tv yes</code></td><td>Include series as well as movies. Default: movies only.</td></tr>
+<tr><td><code>season</code></td><td><code>season 10-01 10-31</code></td><td>The collection exists only between these dates (month-day, both included), every year. May cross New Year: <code>season 12-26 01-04</code>. Outside the window it is deleted.</td></tr>
+<tr><td><code>min_items</code></td><td><code>min_items 5</code></td><td>Overrides the global <code>min_items</code> for this collection.</td></tr>
+<tr><td><code>max_pages</code></td><td><code>max_pages 25</code></td><td>Overrides the global <code>max_pages</code> for this collection's TMDb sources.</td></tr>
+<tr><td><code>min_rating</code></td><td><code>min_rating 7.0</code></td><td>TMDb filter for TMDb sources (and <code>tmdb_keyword:</code> / <code>tmdb_actor:</code> selectors).</td></tr>
+<tr><td><code>min_votes</code></td><td><code>min_votes 500</code></td><td>TMDb filter, same sources as <code>min_rating</code>.</td></tr>
+</table>
+<p>Note the difference between <code>min_rating 7</code> (a TMDb filter, applied while downloading, TMDb sources only) and the</p>
+<p>selector <code>rating:7</code> (Emby's community rating, applied to every title in your library).</p>
+<hr />
+<h2>8. Poster and backdrop settings</h2>
+<p>Every collection gets a generated poster (a 3x3 mosaic of its best-rated titles with the collection's name) and a</p>
+<p>backdrop. These keys change the look; changing them never causes a download.</p>
+<table>
+<tr><th>Key</th><th>Example</th><th>Meaning</th></tr>
+<tr><td><code>poster_title</code></td><td>see below</td><td>The title text. A vertical bar starts a new line. The last line is white, earlier lines use the accent colour.</td></tr>
+<tr><td><code>poster_accent</code></td><td><code>poster_accent 90,220,255</code></td><td>Accent colour as red,green,blue (0-255): bars and upper title lines.</td></tr>
+<tr><td><code>poster_tint</code></td><td><code>poster_tint 10,30,70</code></td><td>The colour the mosaic is tinted with. Dark works best.</td></tr>
+<tr><td><code>poster_sepia</code></td><td><code>poster_sepia yes</code></td><td>Old-photo look.</td></tr>
+<tr><td><code>posters</code></td><td><code>posters no</code></td><td>No generated artwork for this collection.</td></tr>
+</table>
+<p>The line break in <code>poster_title</code> is the <strong>vertical bar</strong>, not a backslash:</p>
+<pre><code>
+poster_title  STAND-UP|COMEDY
+</code></pre>
+<p>The <strong>Poster style...</strong> button on the settings page lets you pick colours with a live preview and writes these lines</p>
+<p>for you. A <code>match</code> collection that is not built yet (new, or out of season) is previewed with the best-rated movies</p>
+<p>in your library; once it exists in Emby, the preview uses its own titles.</p>
+<hr />
+<h2>9. Cookbook</h2>
+<p>Each recipe is a complete collection you can paste and adapt.</p>
+<h3>9.1 A keyword or a tag</h3>
+<p>You have a TMDb keyword for a theme, plus your own Emby tag for titles TMDb misses.</p>
+<pre><code>
+[collection Stand-Up Comedy]
+match         tmdb_keyword:"stand-up comedy" OR tag:"stand-up comedy"
+poster_title  STAND-UP|COMEDY
+poster_accent 150,205,255
+poster_tint   20,45,80
+</code></pre>
+<h3>9.2 Hand-picked by tag</h3>
+<p>Tag the titles in Emby (Edit metadata &gt; Tags), and the collection follows every night.</p>
+<pre><code>
+[collection Friday Movie Night]
+match  tag:"movie night"
+</code></pre>
+<h3>9.3 An actor in a genre</h3>
+<pre><code>
+[collection Hanks at War]
+match  actor:"Tom Hanks" AND (genre:War OR tmdb_keyword:"world war ii")
+</code></pre>
+<p>The actor and the genre come from Emby for free, and only the keyword is downloaded.</p>
+<h3>9.4 A theme without the scary ones</h3>
+<pre><code>
+[collection Family Christmas]
+match   tag:Christmas AND NOT (genre:Horror OR rated:R)
+season  12-01 12-31
+</code></pre>
+<h3>9.5 Two directors</h3>
+<pre><code>
+[collection Nolan and Villeneuve]
+match  director:"Christopher Nolan" OR director:"Denis Villeneuve"
+</code></pre>
+<h3>9.6 A studio's best of an era</h3>
+<pre><code>
+[collection Classic Pixar]
+match  studio:Pixar AND year:&lt;=2010 AND rating:7.5
+</code></pre>
+<h3>9.7 Best of a decade, from your own library</h3>
+<p>There is no download at all: Emby's own years and ratings are used.</p>
+<pre><code>
+[collection Top 80's]
+match  year:1980..1989 AND rating:7.5
+</code></pre>
+<p>Compare with the simple-source version (<code>release_years 1980 1989</code> plus <code>min_rating</code> / <code>min_votes</code>), which uses TMDb's</p>
+<p>ratings and vote counts. Use that one if you want "well known" (<code>min_votes</code>) rather than just "well rated".</p>
+<h3>9.8 A franchise across movies and series, with a quality bar for movies only</h3>
+<pre><code>
+[collection Star Trek]
+match  title:"Star Trek" AND (type:series OR rating:6.5)
+tv     yes
+</code></pre>
+<h3>9.9 A curated list, cleaned up</h3>
+<pre><code>
+[collection Christmas]
+match   mdblist:k0meta/christmas-extravaganza AND NOT genre:Horror
+match   tag:Christmas
+season  12-01 12-31
+</code></pre>
+<p>Everything on the community list except horror, plus anything you tagged yourself.</p>
+<h3>9.10 Family-friendly animation</h3>
+<pre><code>
+[collection Kids Animation]
+match  genre:Animation AND (rated:G OR rated:PG OR rated:TV-Y OR rated:TV-Y7 OR rated:TV-G)
+tv     yes
+</code></pre>
+<h3>9.11 A keyword with a TMDb quality bar</h3>
+<pre><code>
+[collection Great Heists]
+match      tmdb_keyword:heist AND NOT genre:Documentary
+min_votes  1000
+</code></pre>
+<p><code>min_votes</code> is passed to TMDb for the keyword, so only well-known heist movies are listed.</p>
+<h3>9.12 Critics' picks</h3>
+<pre><code>
+[collection Critics' Picks]
+match      critic:90 AND year:&gt;=2000
+min_items  5
+</code></pre>
+<hr />
+<h2>10. Converting a simple collection to match</h2>
+<p>Every simple-source key has a selector that means the same thing:</p>
+<table>
+<tr><th>Simple source</th><th>Inside match</th></tr>
+<tr><td><code>tmdb_keyword time travel</code></td><td><code>tmdb_keyword:"time travel"</code></td></tr>
+<tr><td><code>tmdb_actor Tom Hanks</code></td><td><code>tmdb_actor:"Tom Hanks"</code> (or <code>actor:"Tom Hanks"</code> from Emby)</td></tr>
+<tr><td><code>mdblist user/list</code></td><td><code>mdblist:user/list</code></td></tr>
+<tr><td><code>title Star Trek</code></td><td><code>title:"Star Trek"</code></td></tr>
+<tr><td><code>release_years 1980 1989</code></td><td><code>year:1980..1989</code> (Emby's years, no download)</td></tr>
+<tr><td><code>exclude_genre Horror</code></td><td><code>AND NOT genre:Horror</code></td></tr>
+<tr><td><code>exclude_keyword christmas</code></td><td><code>AND NOT tmdb_keyword:christmas</code></td></tr>
+<tr><td>two <code>tmdb_keyword</code> lines</td><td><code>tmdb_keyword:a OR tmdb_keyword:b</code></td></tr>
+</table>
+<p>Example, before:</p>
+<pre><code>
+[collection Winter Time]
+tmdb_keyword    winter
+tmdb_keyword    snow
+exclude_genre   Horror
+exclude_keyword christmas
+season          12-01 02-29
+</code></pre>
+<p>After, the same collection plus titles you tagged <code>winter</code>:</p>
+<pre><code>
+[collection Winter Time]
+match   (tmdb_keyword:winter OR tmdb_keyword:snow OR tag:winter) AND NOT (genre:Horror OR tmdb_keyword:christmas)
+season  12-01 02-29
+</code></pre>
+<p>Two small differences to know about:</p>
+<ul>
+<li>A simple collection sends everything to TMDb as <strong>one</strong> search. In <code>match</code>, each online selector is downloaded <strong>on its own</strong> and combined in your library. The result is the same for keywords; it can differ slightly for <code>exclude_genre</code>, which in a simple collection is applied by TMDb's genres <strong>and</strong> Emby's, while <code>NOT genre:</code> uses Emby's genres only.</li>
+<li>The first run after converting downloads each online selector once, into its own saved list. The collection's old saved list is removed on the same run.</li>
+</ul>
+<hr />
+<h2>11. Downloads, saved lists and API cost</h2>
+<ul>
+<li><strong>Emby selectors</strong> (<code>tag:</code>, <code>genre:</code>, <code>actor:</code>, <code>year:</code>, ...) never download anything. They are checked against your library on every run.</li>
+<li><strong>Online selectors</strong> are downloaded once and saved in the plugin's data folder under <code>lists/match/</code>, one file per selector. A saved list is reused until it is <code>list_refresh_days</code> old (default 7), or until you tick <strong>Download all lists again</strong> on the settings page.</li>
+<li>A saved list belongs to the selector <strong>and</strong> the settings that change what is downloaded: <code>tv</code>, <code>max_pages</code>, <code>min_rating</code>, <code>min_votes</code>. Two collections that use <code>tmdb_keyword:christmas</code> with the same settings <strong>share one download</strong>. Change one of those settings and that selector is downloaded again.</li>
+<li>Changing the expression around a selector (adding <code>AND NOT genre:Horror</code>, say) costs <strong>no</strong> download: only selectors that are new or whose settings changed are fetched.</li>
+<li>Saved lists that no collection uses any more are deleted after a full run (not when <strong>Only these collections</strong> is set, since then the other collections only look missing).</li>
+<li>Simple-source collections keep their saved lists in <code>lists/</code> exactly as before.</li>
+</ul>
+<hr />
+<h2>12. Testing a collection safely</h2>
+<ol>
+<li>Tick <strong>Dry run</strong> and <strong>Log the matching titles</strong>.</li>
+<li>Put the collection's name in <strong>Only these collections</strong>, so the run touches nothing else.</li>
+<li>Save, then run <strong>Dashboard &gt; Scheduled Tasks &gt; Ultimate Collections &gt; Sync collections</strong>.</li>
+<li>Read the log (<code>logs/YYYY-MM-DD.log</code> in the plugin's data folder; example below).</li>
+<li>When the titles are right, untick <strong>Dry run</strong>, clear <strong>Only these collections</strong>, Save, and run again.</li>
+</ol>
+<p>For a <code>match</code> collection the log shows what each selector found, then the result. (Each title in the real log is</p>
+<p>followed by its Emby, TMDb and IMDb ids; they are left out here.)</p>
+<pre><code>
+[Hanks at War] actor:"Tom Hanks": 14 in the library
+[Hanks at War] genre:War: 63 in the library
+[Hanks at War] tmdb_keyword:"world war ii": 41 in the library
+[Hanks at War] matches: Greyhound (2020); Saving Private Ryan (1998)
+[Hanks at War] [dry-run] create with 2 items (list has 118, match: tmdb_keyword:"world war ii" downloaded (new))
+</code></pre>
+<p>The per-selector counts are the quickest way to debug: a selector at 0 is usually a spelling difference from what</p>
+<p>Emby shows.</p>
+<hr />
+<h2>13. Errors and warnings explained</h2>
+<p>Errors in the settings stop the whole run before anything changes. Errors in one collection leave <strong>that</strong></p>
+<p>collection unchanged and let the others sync.</p>
+<table>
+<tr><th>Message</th><th>Cause and fix</th></tr>
+<tr><td><code>line N: match: unknown selector 'x:'</code></td><td>A misspelt field. The message lists the valid ones.</td></tr>
+<tr><td><code>line N: match: unexpected word 'travel' ... needs quotes</code></td><td>A value with a space is missing its quotes: <code>tmdb_keyword:"time travel"</code>.</td></tr>
+<tr><td><code>line N: match: unexpected 'tag:b' ... (missing AND / OR?)</code></td><td>Two selectors with no operator between them.</td></tr>
+<tr><td><code>line N: match: '(' at column C is never closed</code></td><td>A missing <code>)</code>.</td></tr>
+<tr><td><code>line N: match: unexpected ')' ... (no matching '(')</code></td><td>One <code>)</code> too many.</td></tr>
+<tr><td><code>line N: match: the expression ends too early</code></td><td>The line ends after <code>AND</code>, <code>OR</code>, <code>NOT</code> or <code>(</code>.</td></tr>
+<tr><td><code>line N: match: the quote after 'x:' ... is never closed</code></td><td>A missing closing <code>"</code>.</td></tr>
+<tr><td><code>year: needs a number</code></td><td>A number selector got text: write <code>year:1980..1989</code>, <code>rating:&gt;=7</code>.</td></tr>
+<tr><td><code>type: is movie or series</code></td><td><code>type:</code> takes <code>movie</code> or <code>series</code> (or <code>show</code> / <code>tv</code>).</td></tr>
+<tr><td><code>collection 'X' has 'match' and also tmdb_keyword</code></td><td>Mixed styles. Move the simple source into the expression (section 10).</td></tr>
+<tr><td><code>collection 'X' has no source</code></td><td>A collection with neither a simple source nor a <code>match</code> line.</td></tr>
+<tr><td><code>[X] tag:"..." matches nothing in the library (check the spelling)</code></td><td>A warning only. The value differs from what Emby shows, or no title has it yet.</td></tr>
+<tr><td><code>[X] ERROR, collection left unchanged: mdblist:... returned nothing</code></td><td>An online list came back empty: probably removed, renamed or unreachable. The collection is kept as it was.</td></tr>
+<tr><td><code>[X] ERROR: sources returned nothing, collection left unchanged</code></td><td>Every selector matched nothing at all, which looks broken rather than empty, so the collection is kept.</td></tr>
+<tr><td><code>[X] only N of the M listed items are in the library (&lt; min_items K)</code></td><td>The expression matched too few titles; the collection is not created, or is removed.</td></tr>
+<tr><td><code>TMDb keyword 'x' not found (close: ...)</code></td><td>The keyword name must match TMDb exactly; pick one of the suggested names or use the numeric id.</td></tr>
+</table>
+<hr />
+<h2>14. Quick reference card</h2>
+<pre><code>
+[global]
+min_items          2          # collections smaller than this are not made
+max_pages          100        # TMDb pages (20 titles) per TMDb source
+list_refresh_days  7          # re-download lists after this many days
+
+[collection Name]
+# --- either simple sources (repeat = ANY) ---
+tmdb_keyword    &lt;keyword&gt;
+tmdb_actor      &lt;name&gt;
+release_years   &lt;from&gt; &lt;to&gt;
+mdblist         &lt;user&gt;/&lt;list&gt;
+title           &lt;text&gt;
+exclude_genre   &lt;genre&gt;
+exclude_keyword &lt;keyword&gt;
+# --- or match expressions (repeat = ANY) ---
+match   &lt;selector&gt; AND / OR / NOT &lt;selector&gt; ... ( ) for grouping
+#   Emby:   tag: genre: studio: rated: title: actor: director: writer: producer: person:
+#           year:1985  year:1980..1989  year:&gt;=2000  rating:7  rating:&lt;5  critic:80  type:movie|series
+#   Online: tmdb_keyword: tmdb_actor: mdblist:
+#   Quote values with spaces: tag:"Family Night"
+# --- both styles ---
+tv          yes
+season      MM-DD MM-DD
+min_items   &lt;n&gt;
+max_pages   &lt;n&gt;
+min_rating  &lt;0-10&gt;            # TMDb filter for TMDb sources
+min_votes   &lt;n&gt;               # TMDb filter for TMDb sources
+# --- poster ---
+poster_title   LINE1|LINE2
+poster_accent  r,g,b
+poster_tint    r,g,b
+poster_sepia   yes
+posters        no
+</code></pre>
+
+</body></html>

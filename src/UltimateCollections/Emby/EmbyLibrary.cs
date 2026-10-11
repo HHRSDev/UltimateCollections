@@ -17,6 +17,7 @@ using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Querying;
 using UltimateCollections.Core;
 
@@ -36,7 +37,8 @@ namespace UltimateCollections.Emby
         // Id and Name must be listed too: with DtoOptions(false) Emby loads only the listed fields, and without
         // ItemFields.Id every item comes back with InternalId 0 (seen on 4.10.1, 2026-10-09).
         static readonly ItemFields[] Fields =
-            { ItemFields.Id, ItemFields.Name, ItemFields.ProviderIds, ItemFields.Genres, ItemFields.ProductionYear, ItemFields.CommunityRating };
+            { ItemFields.Id, ItemFields.Name, ItemFields.ProviderIds, ItemFields.Genres, ItemFields.ProductionYear, ItemFields.CommunityRating,
+              ItemFields.Tags, ItemFields.Studios, ItemFields.OfficialRating, ItemFields.CriticRating };
 
         // ---- reading ----
 
@@ -63,6 +65,10 @@ namespace UltimateCollections.Emby
                 Genres = i.Genres ?? Array.Empty<string>(),
                 IsSeries = i is Series,
                 Rating = i.CommunityRating,
+                Tags = i.Tags ?? Array.Empty<string>(),
+                Studios = i.Studios ?? Array.Empty<string>(),
+                OfficialRating = i.OfficialRating,
+                CriticRating = i.CriticRating,
             }).ToList();
         }
 
@@ -96,6 +102,25 @@ namespace UltimateCollections.Emby
         // Just the member ids, which is all the sync needs to work out what to add and remove.
         public HashSet<long> GetMembers(long collectionId) =>
             new HashSet<long>(_library.GetInternalItemIds(new InternalItemsQuery { CollectionIds = new[] { collectionId } }));
+
+        // Person items are looked up by name, then Emby is asked for the movies and series linked to them in the
+        // wanted roles. The name check is repeated without case, so "tom hanks" finds Tom Hanks if Emby's own name
+        // filter turns out to be case sensitive.
+        public HashSet<long> GetItemsWithPerson(string name, string[] roles)
+        {
+            var people = _library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { "Person" }, Name = name })
+                .Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.InternalId).Where(id => id != 0).ToArray();
+            if (people.Length == 0)
+                return new HashSet<long>();
+            var query = new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { "Movie", "Series" }, Recursive = true, IsVirtualItem = false, PersonIds = people,
+            };
+            if (roles != null)
+                query.PersonTypes = roles.Select(r => (PersonType)Enum.Parse(typeof(PersonType), r)).ToArray();
+            return new HashSet<long>(_library.GetInternalItemIds(query));
+        }
 
         // ---- changing ----
 

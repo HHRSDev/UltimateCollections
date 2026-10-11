@@ -17,11 +17,14 @@ namespace UltimateCollections.Core
     // library). Repeatable keys may appear more than once in a section and mean ANY.
     public static class Keys
     {
-        public static readonly string[] Sources = { "tmdb_keyword", "tmdb_actor", "mdblist", "release_years", "title" };
+        public static readonly string[] Sources = { "tmdb_keyword", "tmdb_actor", "mdblist", "release_years", "title", "match" };
         public static readonly string[] Online = { "tmdb_keyword", "tmdb_actor", "mdblist", "release_years" };   // need a download
         public static readonly string[] Discover = { "min_rating", "min_votes" };
         public static readonly HashSet<string> Repeatable =
             new HashSet<string>(Sources.Concat(new[] { "exclude_genre", "exclude_keyword" }));
+        // Keys that a 'match' collection writes inside the expression instead (see MatchExpression).
+        public static readonly string[] NotWithMatch =
+            { "tmdb_keyword", "tmdb_actor", "mdblist", "release_years", "title", "exclude_genre", "exclude_keyword" };
         // Settings that change WHAT is downloaded; they make up the list fingerprint (see ListCache). Changing one
         // fetches that list again. Poster settings stay out of here on purpose.
         public static readonly string[] Signature =
@@ -36,6 +39,9 @@ namespace UltimateCollections.Core
         public int Line { get; }
         public Dictionary<string, List<string>> Lists { get; } = new Dictionary<string, List<string>>();
         public Dictionary<string, string> Values { get; } = new Dictionary<string, string>();
+
+        // The 'match' lines, parsed; several lines mean ANY of them. Null when the collection has no 'match'.
+        public MatchNode Match { get; set; }
 
         public CollectionDefinition(string name, int line)
         {
@@ -52,7 +58,7 @@ namespace UltimateCollections.Core
 
         public bool WantsTv => new[] { "yes", "true", "on", "1" }.Contains((Get("tv") ?? "no").ToLowerInvariant());
 
-        public bool NeedsDownload => Keys.Online.Any(k => GetList(k).Count > 0);
+        public bool NeedsDownload => Keys.Online.Any(k => GetList(k).Count > 0) || (Match?.Atoms().Any(a => a.IsOnline) ?? false);
     }
 
     public sealed class CollectionsConfig
@@ -124,6 +130,19 @@ namespace UltimateCollections.Core
                     if (!cur.Lists.TryGetValue(key, out var list))
                         cur.Lists[key] = list = new List<string>();
                     list.Add(val);
+                    if (key == "match")
+                    {
+                        MatchNode node;
+                        try
+                        {
+                            node = MatchParser.Parse(val);
+                        }
+                        catch (FormatException e)
+                        {
+                            throw new ConfigException($"line {n}: match: {e.Message}");
+                        }
+                        cur.Match = cur.Match == null ? node : new AndOrNode(false, new List<MatchNode> { cur.Match, node });
+                    }
                 }
                 else
                     cur.Values[key] = val;
@@ -137,6 +156,15 @@ namespace UltimateCollections.Core
             foreach (var c in cfg.Collections)
                 if (!Keys.Sources.Any(c.Has))
                     throw new ConfigException($"collection '{c.Name}' (line {c.Line}) has no source ({string.Join(", ", Keys.Sources.OrderBy(x => x))})");
+            // 'match' replaces the old source keys rather than adding to them, so it is always clear how a collection
+            // combines. Each old key has a selector of the same meaning to write inside the expression.
+            foreach (var c in cfg.Collections.Where(c => c.Match != null))
+            {
+                var old = Keys.NotWithMatch.Where(c.Has).ToList();
+                if (old.Count > 0)
+                    throw new ConfigException($"collection '{c.Name}' (line {c.Line}) has 'match' and also {string.Join(", ", old)}; " +
+                                              "write those inside the match expression instead (e.g. AND NOT genre:Horror, OR title:\"Star Trek\", year:1980..1989)");
+            }
             return cfg;
         }
     }
