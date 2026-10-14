@@ -2,3 +2,14 @@ bin/
 obj/
 *.user
 .vs/
+
+# Local project management (AI Master tracking, task list, Claude instructions): never part of the codebase
+AIM/
+CLAUDE.md
+TODO.md
+TODO.htm
+GetClaude.bat
+
+# Local reading copies of the docs and the tool that makes them; GitHub shows the .md files
+docs/*.htm
+docs/Convert-MdToHtm.ps1

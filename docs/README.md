@@ -2,8 +2,7 @@
 
 > Ultimate Collections was created by **jdwaymire (WaymireNET)** ([original project](https://github.com/jdwaymire/UltimateCollections)). The documents in this folder were written for the **HHRSDev fork** and describe the changes it makes on top of the original.
 
-The project's documents. Each `.md` file is the source; the `.htm` beside it is generated for reading in a browser
-by `Convert-MdToHtm.ps1` (run it after editing any `.md`). `index.htm` lists every page and resource in this folder.
+The fork's documents:
 
 | Document | What it is |
 |---|---|
